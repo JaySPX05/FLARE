@@ -24,6 +24,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from routing import compute_route, load_osm_graph
 
 
+
 app = FastAPI(
     title="JalDrishti Routing API",
     version="1.0.0",
@@ -76,8 +77,6 @@ def get_graph():
 
     return _state["graph"]
 
-    / "processed"
-    / "risk_lookup_koramangala.json"
 # ---------------------------------------------------------------------------
 # Real flood-risk data
 # ---------------------------------------------------------------------------
