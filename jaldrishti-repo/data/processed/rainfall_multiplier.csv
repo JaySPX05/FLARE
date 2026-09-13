@@ -1,5 +1,5 @@
-timestamp,mean_rainfall_mm,rainfall_multiplier,horizon_label
-2026-09-07T15:00:00,0.517,1.0,T+0
-2026-09-07T16:00:00,17.466,1.6,T+1h
-2026-09-07T17:00:00,7.371,1.25,T+2h
-2026-09-07T17:45:00,0.406,1.0,T+3h
+timestamp,mean_rainfall_mm,rainfall_multiplier,horizon_label,is_forecast
+2026-09-07T17:45:00,0.406,1.0,T+0,False
+2026-09-07T18:45:00,0.144,1.0,T+1h,True
+2026-09-07T19:45:00,0.148,1.0,T+2h,True
+2026-09-07T20:45:00,0.152,1.0,T+3h,True
