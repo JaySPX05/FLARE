@@ -921,10 +921,8 @@ const ROUTING_BACKEND_URL = 'http://127.0.0.1:8001';
 const WARD_ID = 'koramangala';
 
 const REAL_TIMESTAMPS = [
-  "2026-09-07T15:00:00", "2026-09-07T15:15:00", "2026-09-07T15:30:00",
-  "2026-09-07T15:45:00", "2026-09-07T16:00:00", "2026-09-07T16:15:00",
-  "2026-09-07T16:30:00", "2026-09-07T16:45:00", "2026-09-07T17:00:00",
-  "2026-09-07T17:15:00", "2026-09-07T17:30:00", "2026-09-07T17:45:00",
+  "2026-09-07T17:45:00", "2026-09-07T18:45:00",
+  "2026-09-07T19:45:00", "2026-09-07T20:45:00",
 ];
 
 let DATA = null;
@@ -1060,6 +1058,33 @@ async function initDashboard() {
   if (koramangalaBounds.isValid()) {
     map.fitBounds(koramangalaBounds, { padding: [30, 30], maxZoom: 15 });
   }
+
+  /* -- Known flood points (real, historical - fetched but never drawn -- */
+  /* until this fix; the data pipeline and fetch always worked correctly, */
+  /* this rendering step was the missing piece.                          */
+  FLOOD_POINTS.forEach(f => {
+    const [lng, lat] = f.geometry.coordinates;
+    const name = f.properties && f.properties.Name ? f.properties.Name.trim() : 'Known flood point';
+    const elevation = f.properties ? f.properties.elevation : null;
+
+    const marker = L.circleMarker([lat, lng], {
+      radius: 8,
+      color: '#EDF1F7',
+      weight: 2,
+      fillColor: '#8A2432',
+      fillOpacity: 0.9,
+    });
+
+    marker.bindPopup(
+      '<div class="popTitle">' + name + '</div>' +
+      '<div class="popRow"><span>Known flood point</span></div>' +
+      (elevation != null
+        ? '<div class="popRow"><span>Elevation</span><b>' + elevation + ' m</b></div>'
+        : '')
+    );
+
+    marker.addTo(map);
+  });
 
   /* ── Flood-aware routing (moved here so it shares the real map) ──────── */
   let routeLayerGroup = L.layerGroup().addTo(map);
