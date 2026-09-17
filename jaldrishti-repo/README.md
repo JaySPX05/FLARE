@@ -3,19 +3,6 @@
 **Real-time urban flood nowcasting for Bengaluru — street-level, 0–3 hour lead time.**
 
 > "Predicting the puddle before the rain stops."
-
-Software-only: no new sensors or hardware. Built on existing public rainfall, terrain, and drainage data plus open-source tooling.
-
----
-
-## Decide these in the first hour
-
-Fill these in before anyone writes code. They block everyone.
-
-- **Pilot ward:** `_______________` (pick the one with the cleanest available data — check, don't assume)
-- **API contract frozen?** `contracts/risk-api-schema.json` — yes / no
-- **Map library:** Leaflet / Mapbox (pick whichever someone already knows)
-
 ---
 
 ## Repo layout
@@ -66,10 +53,6 @@ Then follow the README in your own folder.
 
 **The compute rule:** anything heavy (ML training, SWMM calibration) runs **once, offline, on free cloud compute**. Anything running live must be light enough for a mid-range laptop.
 
----
 
-## Scope discipline
 
-This repo contains folders for the full project vision, but **not everything is in scope for every sprint.** Phase 2 items are marked as such in their READMEs. Under a tight build window, cut aggressively and say so honestly in the pitch — a working narrow demo beats a broken broad one.
 
-See `docs/` for the current build plan and `docs/GIT_WORKFLOW.md` for branching and commit conventions.
