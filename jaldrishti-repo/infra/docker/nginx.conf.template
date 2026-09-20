@@ -1,0 +1,41 @@
+# Rendered at container start: ${API_UPSTREAM} and ${ROUTING_UPSTREAM} come from the environment.
+server {
+    listen 8080;
+    server_name _;
+
+    root /usr/share/nginx/html;
+    index index.html;
+
+    gzip on;
+    gzip_types text/css application/javascript application/json;
+
+    # Liveness/readiness probe target (also handy for Azure Container Apps)
+    location = /healthz {
+        access_log off;
+        default_type text/plain;
+        return 200 "ok\n";
+    }
+
+    # Risk API: the /api/ prefix is part of the real route, so pass it through untouched.
+    location /api/ {
+        proxy_pass ${API_UPSTREAM};
+        proxy_http_version 1.1;
+        proxy_ssl_server_name on;
+        proxy_connect_timeout 10s;
+        proxy_read_timeout 60s;
+    }
+
+    # Routing API: /routing/route -> /route (the trailing slash strips the prefix).
+    location /routing/ {
+        proxy_pass ${ROUTING_UPSTREAM}/;
+        proxy_http_version 1.1;
+        proxy_ssl_server_name on;
+        proxy_connect_timeout 10s;
+        proxy_read_timeout 120s;
+    }
+
+    location / {
+        add_header Cache-Control "no-cache";
+        try_files $uri $uri/ /index.html;
+    }
+}

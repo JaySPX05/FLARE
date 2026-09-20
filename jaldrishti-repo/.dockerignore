@@ -1,0 +1,16 @@
+# Whitelist style: send Docker nothing except what the images actually COPY.
+# (data/raw and the big rasters/geopackages never leave your machine.)
+*
+
+!backend-api/*.py
+!backend-api/requirements-*.txt
+!frontend-dashboard/index.html
+!scripts/
+!ml-nowcasting/
+!infra/docker/
+!data/processed/risk_lookup_*.json
+!data/processed/flood_points_*.geojson
+!data/processed/*.graphml
+
+**/__pycache__
+**/*.pyc

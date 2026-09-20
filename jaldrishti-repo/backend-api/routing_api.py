@@ -12,22 +12,48 @@ Run from backend-api:
     python -m uvicorn routing_api:app --reload
 
 Test:
-    http://127.0.0.1:8000/docs
+    http://127.0.0.1:8001/docs
 """
 
 import json
+import os
+from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from shapely import STRtree
+from shapely.geometry import LineString
 
-from routing import compute_route, load_osm_graph
+from routing import (
+    build_edge_index,
+    compute_route,
+    edge_line,
+    load_osm_graph,
+)
 
+
+@asynccontextmanager
+async def lifespan(_app):
+    """
+    Download the OSM graph and build the lookup tables when the server
+    starts, so the first route click isn't the one that waits for the
+    download. If it fails (e.g. offline), the first /route call retries.
+    """
+    try:
+        graph = get_graph()
+        build_edge_index(graph)
+        segments, _ = get_segments_for_timestep(None)
+        get_edge_segment_map(graph, segments)
+    except Exception as error:
+        print(f"Startup preload skipped ({error}); will retry on first route request.")
+    yield
 
 
 app = FastAPI(
     title="JalDrishti Routing API",
-    version="1.0.0",
+    version="1.1.0",
+    lifespan=lifespan,
 )
 
 app.add_middleware(
@@ -49,9 +75,20 @@ RISK_LOOKUP_PATH = (
     / "risk_lookup_koramangala.json"
 )
 
+# Saved copy of the road graph (create it with scripts/08_cache_osm_graph.py).
+# When the file exists the service starts in seconds with no internet; when it
+# doesn't, the graph is downloaded live as before. Override with OSM_GRAPH_PATH.
+OSM_GRAPH_PATH = Path(
+    os.environ.get(
+        "OSM_GRAPH_PATH",
+        BASE_DIR.parent / "data" / "processed" / "koramangala_drive.graphml",
+    )
+)
+
 _state = {
     "graph": None,
     "risk_data": None,
+    "edge_segments": None,
 }
 
 
@@ -67,11 +104,17 @@ def get_graph():
     requests a route.
     """
     if _state["graph"] is None:
-        print(
-            f"Loading OSM road network for {PLACE_NAME}..."
+        source = (
+            f"saved graph {OSM_GRAPH_PATH.name}"
+            if OSM_GRAPH_PATH.exists()
+            else "OpenStreetMap (live download)"
         )
 
-        _state["graph"] = load_osm_graph()
+        print(
+            f"Loading road network for {PLACE_NAME} from {source}..."
+        )
+
+        _state["graph"] = load_osm_graph(graph_path=OSM_GRAPH_PATH)
 
         print("OSM road graph loaded.")
 
@@ -199,6 +242,91 @@ def get_segments_for_timestep(timestep=None):
 # Risk-to-road matching
 # ---------------------------------------------------------------------------
 
+# A road edge takes the risk of a forecast segment only if it actually runs
+# along that segment: within ~8 m of it for a meaningful stretch (25 m, or
+# half the edge if it is shorter). The stretch requirement stops a road that
+# merely crosses a flooded one from inheriting its risk. (The old version
+# compared edge midpoints to segment midpoints within ~200 m, which handed
+# risk to unrelated neighbouring roads and missed real flooded ones.)
+MATCH_TOLERANCE_DEG = 0.00007      # ~8 m
+METRES_PER_DEGREE = 111_000
+MIN_OVERLAP_M = 25.0
+
+
+def _build_edge_segment_map(graph, segments):
+    """
+    Work out which forecast segments each road edge lies on.
+
+    Returns {(u, v, key): [segment_id, ...]}.
+
+    This is purely geometric - segment shapes are identical at every
+    timestep - so it is computed once and only the risk values are looked
+    up per timestep.
+    """
+    usable = [
+        segment
+        for segment in segments
+        if segment.get("geometry") and len(segment["geometry"]) >= 2
+    ]
+
+    if not usable:
+        return {}
+
+    zones = [
+        LineString(segment["geometry"]).buffer(
+            MATCH_TOLERANCE_DEG,
+            cap_style="flat",
+        )
+        for segment in usable
+    ]
+
+    tree = STRtree(zones)
+    edge_segments = {}
+
+    for u, v, key in graph.edges(keys=True):
+        line = edge_line(graph, u, v, key)
+
+        edge_length_m = float(
+            graph[u][v][key].get(
+                "length",
+                line.length * METRES_PER_DEGREE,
+            )
+        )
+
+        needed_m = min(MIN_OVERLAP_M, 0.5 * edge_length_m)
+
+        matched = []
+
+        for index in tree.query(line, predicate="intersects"):
+            overlap_m = (
+                line.intersection(zones[index]).length
+                * METRES_PER_DEGREE
+            )
+
+            if overlap_m >= needed_m:
+                matched.append(usable[index]["segment_id"])
+
+        if matched:
+            edge_segments[(u, v, key)] = matched
+
+    return edge_segments
+
+
+def get_edge_segment_map(graph, segments):
+    if _state["edge_segments"] is None:
+        _state["edge_segments"] = _build_edge_segment_map(
+            graph,
+            segments,
+        )
+
+        print(
+            f"Matched {len(_state['edge_segments'])} road edges "
+            "to flood-risk segments."
+        )
+
+    return _state["edge_segments"]
+
+
 def apply_risk_to_graph(graph, timestep=None):
 
     segments, timestep_used = get_segments_for_timestep(
@@ -214,62 +342,20 @@ def apply_risk_to_graph(graph, timestep=None):
     if not segments:
         return graph, timestep_used
 
-    usable_segments = [
-        segment
+    edge_segments = get_edge_segment_map(graph, segments)
+
+    risk_by_segment = {
+        segment["segment_id"]: float(segment.get("risk_score", 0.0))
         for segment in segments
-        if segment.get("geometry")
-    ]
+    }
 
-    if not usable_segments:
-        return graph, timestep_used
-
-    segment_points = [
-        segment_midpoint(segment["geometry"])
-        for segment in usable_segments
-    ]
-
-    segment_risks = [
-        float(segment.get("risk_score", 0.0))
-        for segment in usable_segments
-    ]
-
-    MAX_MATCH_DISTANCE_SQUARED = 0.000003228  # ~200m at this latitude
-
-    for source, destination, _, edge_data in graph.edges(
-        keys=True,
-        data=True,
-    ):
-        edge_latitude = (
-            graph.nodes[source]["y"]
-            + graph.nodes[destination]["y"]
-        ) / 2
-
-        edge_longitude = (
-            graph.nodes[source]["x"]
-            + graph.nodes[destination]["x"]
-        ) / 2
-
-        nearest_distance = float("inf")
-        nearest_risk = 0.0
-
-        for (
-            segment_latitude,
-            segment_longitude,
-        ), risk_score in zip(
-            segment_points,
-            segment_risks,
-        ):
-            distance = (
-                (edge_latitude - segment_latitude) ** 2
-                + (edge_longitude - segment_longitude) ** 2
-            )
-
-            if distance < nearest_distance:
-                nearest_distance = distance
-                nearest_risk = risk_score
-
-        if nearest_distance <= MAX_MATCH_DISTANCE_SQUARED:
-            edge_data["risk_score"] = nearest_risk
+    for (u, v, key), segment_ids in edge_segments.items():
+        # Worst stretch wins: a road is only as passable as its most
+        # flooded part.
+        graph[u][v][key]["risk_score"] = max(
+            risk_by_segment.get(segment_id, 0.0)
+            for segment_id in segment_ids
+        )
 
     return graph, timestep_used
 
@@ -305,28 +391,33 @@ def path_to_geojson_feature(
     }
 
 
-def get_severe_risk_segments(
+def flooded_segments_on_route(
+    edge_ids,
     timestep,
     risk_threshold=0.55,
 ):
     """
-    Return IDs of source forecast segments considered unsafe.
-
-    The current dataset peaks around 0.59, so 0.55 creates a visible
-    safe-route demonstration. Use 0.80 later if your model has higher
-    confidence/risk values and that is your team's agreed threshold.
+    IDs of forecast segments at/above the risk threshold that a route
+    travels along. Used to report which flooded roads the shortest route
+    would have crossed and the safe route avoids.
     """
+    edge_segments = _state["edge_segments"] or {}
+
     segments, _ = get_segments_for_timestep(
         timestep
     )
 
-    return [
-        segment.get("segment_id", "unknown")
+    risk_by_segment = {
+        segment["segment_id"]: float(segment.get("risk_score", 0.0))
         for segment in segments
-        if float(
-            segment.get("risk_score", 0.0)
-        ) >= risk_threshold
-    ]
+    }
+
+    return {
+        segment_id
+        for edge_id in edge_ids
+        for segment_id in edge_segments.get(edge_id, [])
+        if risk_by_segment.get(segment_id, 0.0) >= risk_threshold
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -456,9 +547,15 @@ def route(
             "risk_penalty_applied": True,
             "risk_penalty_factor": 15.0,
             "risk_threshold": 0.55,
-            "avoided_segments": get_severe_risk_segments(
-                timestep=timestep_used,
-                risk_threshold=0.55,
+            "avoided_segments": sorted(
+                flooded_segments_on_route(
+                    shortest_result["edge_ids"],
+                    timestep_used,
+                )
+                - flooded_segments_on_route(
+                    safe_result["edge_ids"],
+                    timestep_used,
+                )
             ),
             "safe_route_available": bool(
                 safe_result["path"]

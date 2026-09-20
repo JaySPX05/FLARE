@@ -32,12 +32,15 @@
 	        user-select: none;
 	  -webkit-user-drag: none;
 	}
+/* Prevents IE11 from highlighting tiles in blue */
 .leaflet-tile::selection {
 	background: transparent;
 }
+/* Safari renders non-retina tile on retina better with this, but Chrome is worse */
 .leaflet-safari .leaflet-tile {
 	image-rendering: -webkit-optimize-contrast;
 	}
+/* hack that prevents hw layers "stretching" when loading new tiles */
 .leaflet-safari .leaflet-tile-container {
 	width: 1600px;
 	height: 1600px;
@@ -47,6 +50,8 @@
 .leaflet-marker-shadow {
 	display: block;
 	}
+/* .leaflet-container svg: reset svg max-width decleration shipped in Joomla! (joomla.org) 3.x */
+/* .leaflet-container img: map is broken in FF if you have max-width: 100% on tiles */
 .leaflet-container .leaflet-overlay-pane svg {
 	max-width: none !important;
 	max-height: none !important;
@@ -61,15 +66,19 @@
 	width: auto;
 	padding: 0;
 	}
+
 .leaflet-container img.leaflet-tile {
+	/* See: https://bugs.chromium.org/p/chromium/issues/detail?id=600120 */
 	mix-blend-mode: plus-lighter;
 }
+
 .leaflet-container.leaflet-touch-zoom {
 	-ms-touch-action: pan-x pan-y;
 	touch-action: pan-x pan-y;
 	}
 .leaflet-container.leaflet-touch-drag {
 	-ms-touch-action: pinch-zoom;
+	/* Fallback for FF which doesn't support pinch-zoom */
 	touch-action: none;
 	touch-action: pinch-zoom;
 }
@@ -97,18 +106,23 @@
 	     box-sizing: border-box;
 	z-index: 800;
 	}
+/* workaround for https://bugzilla.mozilla.org/show_bug.cgi?id=888319 */
 .leaflet-overlay-pane svg {
 	-moz-user-select: none;
 	}
+
 .leaflet-pane         { z-index: 400; }
+
 .leaflet-tile-pane    { z-index: 200; }
 .leaflet-overlay-pane { z-index: 400; }
 .leaflet-shadow-pane  { z-index: 500; }
 .leaflet-marker-pane  { z-index: 600; }
 .leaflet-tooltip-pane   { z-index: 650; }
 .leaflet-popup-pane   { z-index: 700; }
+
 .leaflet-map-pane canvas { z-index: 100; }
 .leaflet-map-pane svg    { z-index: 200; }
+
 .leaflet-vml-shape {
 	width: 1px;
 	height: 1px;
@@ -118,10 +132,14 @@
 	display: inline-block;
 	position: absolute;
 	}
+
+
+/* control positioning */
+
 .leaflet-control {
 	position: relative;
 	z-index: 800;
-	pointer-events: visiblePainted;
+	pointer-events: visiblePainted; /* IE 9-10 doesn't have auto */
 	pointer-events: auto;
 	}
 .leaflet-top,
@@ -161,6 +179,10 @@
 .leaflet-right .leaflet-control {
 	margin-right: 10px;
 	}
+
+
+/* zoom and fade animations */
+
 .leaflet-fade-anim .leaflet-popup {
 	opacity: 0;
 	-webkit-transition: opacity 0.2s linear;
@@ -178,6 +200,7 @@
 svg.leaflet-zoom-animated {
 	will-change: transform;
 }
+
 .leaflet-zoom-anim .leaflet-zoom-animated {
 	-webkit-transition: -webkit-transform 0.25s cubic-bezier(0,0,0.25,1);
 	   -moz-transition:    -moz-transform 0.25s cubic-bezier(0,0,0.25,1);
@@ -189,9 +212,14 @@ svg.leaflet-zoom-animated {
 	   -moz-transition: none;
 	        transition: none;
 	}
+
 .leaflet-zoom-anim .leaflet-zoom-hide {
 	visibility: hidden;
 	}
+
+
+/* cursors */
+
 .leaflet-interactive {
 	cursor: pointer;
 	}
@@ -216,6 +244,8 @@ svg.leaflet-zoom-animated {
 	cursor:    -moz-grabbing;
 	cursor:         grabbing;
 	}
+
+/* marker & overlays interactivity */
 .leaflet-marker-icon,
 .leaflet-marker-shadow,
 .leaflet-image-layer,
@@ -223,13 +253,17 @@ svg.leaflet-zoom-animated {
 .leaflet-tile-container {
 	pointer-events: none;
 	}
+
 .leaflet-marker-icon.leaflet-interactive,
 .leaflet-image-layer.leaflet-interactive,
 .leaflet-pane > svg path.leaflet-interactive,
 svg.leaflet-image-layer.leaflet-interactive path {
-	pointer-events: visiblePainted;
+	pointer-events: visiblePainted; /* IE 9-10 doesn't have auto */
 	pointer-events: auto;
 	}
+
+/* visual tweaks */
+
 .leaflet-container {
 	background: #ddd;
 	outline-offset: 1px;
@@ -241,12 +275,19 @@ svg.leaflet-image-layer.leaflet-interactive path {
 	border: 2px dotted #38f;
 	background: rgba(255,255,255,0.5);
 	}
+
+
+/* general typography */
 .leaflet-container {
 	font-family: "Helvetica Neue", Arial, Helvetica, sans-serif;
 	font-size: 12px;
 	font-size: 0.75rem;
 	line-height: 1.5;
 	}
+
+
+/* general toolbar styles */
+
 .leaflet-bar {
 	box-shadow: 0 1px 5px rgba(0,0,0,0.65);
 	border-radius: 4px;
@@ -286,6 +327,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
 	background-color: #f4f4f4;
 	color: #bbb;
 	}
+
 .leaflet-touch .leaflet-bar a {
 	width: 30px;
 	height: 30px;
@@ -299,14 +341,22 @@ svg.leaflet-image-layer.leaflet-interactive path {
 	border-bottom-left-radius: 2px;
 	border-bottom-right-radius: 2px;
 	}
+
+/* zoom control */
+
 .leaflet-control-zoom-in,
 .leaflet-control-zoom-out {
 	font: bold 18px 'Lucida Console', Monaco, monospace;
 	text-indent: 1px;
 	}
+
 .leaflet-touch .leaflet-control-zoom-in, .leaflet-touch .leaflet-control-zoom-out  {
 	font-size: 22px;
 	}
+
+
+/* layers control */
+
 .leaflet-control-layers {
 	box-shadow: 0 1px 5px rgba(0,0,0,0.4);
 	background: #fff;
@@ -358,9 +408,15 @@ svg.leaflet-image-layer.leaflet-interactive path {
 	border-top: 1px solid #ddd;
 	margin: 5px -10px 5px -6px;
 	}
-.leaflet-default-icon-path {
+
+/* Default icon URLs */
+.leaflet-default-icon-path { /* used only in path-guessing heuristic, see L.Icon.Default */
 	background-image: url(images/marker-icon.png);
 	}
+
+
+/* attribution and scale controls */
+
 .leaflet-container .leaflet-control-attribution {
 	background: #fff;
 	background: rgba(255, 255, 255, 0.8);
@@ -410,6 +466,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
 .leaflet-control-scale-line:not(:first-child):not(:last-child) {
 	border-bottom: 2px solid #777;
 	}
+
 .leaflet-touch .leaflet-control-attribution,
 .leaflet-touch .leaflet-control-layers,
 .leaflet-touch .leaflet-bar {
@@ -420,6 +477,10 @@ svg.leaflet-image-layer.leaflet-interactive path {
 	border: 2px solid rgba(0,0,0,0.2);
 	background-clip: padding-box;
 	}
+
+
+/* popup */
+
 .leaflet-popup {
 	position: absolute;
 	text-align: center;
@@ -455,8 +516,10 @@ svg.leaflet-image-layer.leaflet-interactive path {
 	width: 17px;
 	height: 17px;
 	padding: 1px;
+
 	margin: -10px auto 0;
 	pointer-events: auto;
+
 	-webkit-transform: rotate(45deg);
 	   -moz-transform: rotate(45deg);
 	    -ms-transform: rotate(45deg);
@@ -488,25 +551,36 @@ svg.leaflet-image-layer.leaflet-interactive path {
 .leaflet-popup-scrolled {
 	overflow: auto;
 	}
+
 .leaflet-oldie .leaflet-popup-content-wrapper {
 	-ms-zoom: 1;
 	}
 .leaflet-oldie .leaflet-popup-tip {
 	width: 24px;
 	margin: 0 auto;
+
 	-ms-filter: "progid:DXImageTransform.Microsoft.Matrix(M11=0.70710678, M12=0.70710678, M21=-0.70710678, M22=0.70710678)";
 	filter: progid:DXImageTransform.Microsoft.Matrix(M11=0.70710678, M12=0.70710678, M21=-0.70710678, M22=0.70710678);
 	}
+
 .leaflet-oldie .leaflet-control-zoom,
 .leaflet-oldie .leaflet-control-layers,
 .leaflet-oldie .leaflet-popup-content-wrapper,
 .leaflet-oldie .leaflet-popup-tip {
 	border: 1px solid #999;
 	}
+
+
+/* div icon */
+
 .leaflet-div-icon {
 	background: #fff;
 	border: 1px solid #666;
 	}
+
+
+/* Tooltip */
+/* Base styles for the element that has a tooltip */
 .leaflet-tooltip {
 	position: absolute;
 	padding: 6px;
@@ -536,6 +610,9 @@ svg.leaflet-image-layer.leaflet-interactive path {
 	background: transparent;
 	content: "";
 	}
+
+/* Directions */
+
 .leaflet-tooltip-bottom {
 	margin-top: 6px;
 }
@@ -579,7 +656,11 @@ svg.leaflet-image-layer.leaflet-interactive path {
 	margin-left: -12px;
 	border-right-color: #fff;
 	}
+
+/* Printing */
+
 @media print {
+	/* Prevent printers from removing background-images of controls. */
 	.leaflet-control {
 		-webkit-print-color-adjust: exact;
 		print-color-adjust: exact;
@@ -587,337 +668,493 @@ svg.leaflet-image-layer.leaflet-interactive path {
 	}
 </style>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Source+Sans+3:wght@400;500;600&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cutive+Mono&family=Martian+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
   :root{
-    --ink:#0A1220;
-    --panel:#0F1A2E;
-    --panel-2:#131F36;
-    --border:#243350;
-    --text-hi:#EDF1F7;
-    --text-lo:#8493AD;
-    --rain:#4FA8D8;
-    --d-none:#3A4460;
-    --d-minor:#E7C24A;
-    --d-mod:#E8913F;
-    --d-severe:#DC5A3C;
-    --d-impass:#8A2432;
-    --live:#4FD1A5;
-    --grid:#1B2740;
+    --void:#0A0D12;
+    --panel:#12161E;
+    --panel-2:#171C26;
+    --border:#262D3A;
+    --border-glow:#3A3220;
+    --ink-hi:#F2EDE3;
+    --ink-lo:#8B93A4;
+    --ink-dim:#565E70;
+    --ember:#FF7A1A;
+    --ember-dim:#B85614;
+    --ember-glow:rgba(255,122,26,0.16);
+    --cyan:#3FE8D2;
+    --cyan-dim:#1D8A7C;
+    --d-none:#39404F;
+    --d-minor:#E8C24A;
+    --d-mod:#F2934A;
+    --d-severe:#E4502F;
+    --d-impass:#C4283C;
+    --font-display:'Cutive Mono', monospace;
+    --font-mono:'Martian Mono', monospace;
+  }
+  :root[data-theme="light"]{
+    --void:#EEF1F5;
+    --panel:#FFFFFF;
+    --panel-2:#F6F7F9;
+    --border:#D8DEE6;
+    --border-glow:#F0DDBE;
+    --ink-hi:#1A2233;
+    --ink-lo:#5B6576;
+    --ink-dim:#93A0B4;
+    --ember:#E8630A;
+    --ember-dim:#B85614;
+    --ember-glow:rgba(232,99,10,0.12);
+    --cyan:#0D9488;
+    --cyan-dim:#0B7A6F;
+    --d-none:#B7BFCC;
+    --d-minor:#D9A521;
+    --d-mod:#DB7A2E;
+    --d-severe:#D0472A;
+    --d-impass:#A81F32;
   }
   *{box-sizing:border-box;}
-  html,body{margin:0;padding:0;height:100%;width:100%;background:var(--ink);font-family:'Source Sans 3',sans-serif;color:var(--text-hi);overflow:hidden;}
-  #map{position:absolute;inset:0;background:
-      radial-gradient(circle at 50% 45%, #0D1830 0%, #080D18 78%),
-      repeating-linear-gradient(0deg, var(--grid) 0px, var(--grid) 1px, transparent 1px, transparent 42px),
-      repeating-linear-gradient(90deg, var(--grid) 0px, var(--grid) 1px, transparent 1px, transparent 42px);
+  html,body{margin:0;padding:0;height:100%;width:100%;background:var(--void);font-family:var(--font-mono);color:var(--ink-hi);overflow:hidden;}
+
+  #map{
+    position:absolute;inset:0;
+    background:
+      radial-gradient(ellipse 900px 600px at 18% 12%, rgba(255,122,26,0.05) 0%, transparent 60%),
+      radial-gradient(ellipse 1100px 800px at 85% 90%, rgba(63,232,210,0.045) 0%, transparent 55%),
+      repeating-linear-gradient(0deg, #0D1117 0px, #0D1117 1px, transparent 1px, transparent 44px),
+      repeating-linear-gradient(90deg, #0D1117 0px, #0D1117 1px, transparent 1px, transparent 44px),
+      var(--void);
+  }
+  :root[data-theme="light"] #map{
+    background:
+      radial-gradient(ellipse 900px 600px at 18% 12%, rgba(232,99,10,0.06) 0%, transparent 60%),
+      radial-gradient(ellipse 1100px 800px at 85% 90%, rgba(13,148,136,0.05) 0%, transparent 55%),
+      repeating-linear-gradient(0deg, #E2E7ED 0px, #E2E7ED 1px, transparent 1px, transparent 44px),
+      repeating-linear-gradient(90deg, #E2E7ED 0px, #E2E7ED 1px, transparent 1px, transparent 44px),
+      var(--void);
   }
   .leaflet-container{background:transparent !important;}
-  .leaflet-tile-pane{
-    filter: invert(1) hue-rotate(180deg) brightness(0.85) contrast(0.92) saturate(0.7);
-  }
-  .leaflet-control-zoom a{background:var(--panel-2) !important;color:var(--text-hi) !important;border-color:var(--border) !important;}
-  .leaflet-control-zoom a:hover{background:var(--panel) !important;}
-  .leaflet-control-attribution{background:rgba(15,26,46,0.75) !important;color:var(--text-lo) !important;font-size:10px !important;}
-  .leaflet-control-attribution a{color:var(--rain) !important;}
+  /* Gentle dark-mode dimming - brightness/contrast only, no hue rotation,
+     so the map's real colors (blue water, green parks) stay recognizable
+     instead of turning into an inverted, muddy mess. */
+  :root:not([data-theme="light"]) .leaflet-tile-pane{ filter: brightness(0.6) saturate(0.9) contrast(1.05); }
+  .leaflet-control-zoom a{background:var(--panel) !important;color:var(--ink-hi) !important;border-color:var(--border) !important;font-family:var(--font-mono) !important;}
+  .leaflet-control-zoom a:hover{background:var(--panel-2) !important;color:var(--ember) !important;}
+  .leaflet-control-attribution{background:rgba(10,13,18,0.8) !important;color:var(--ink-dim) !important;font-size:10px !important;font-family:var(--font-mono) !important;}
+  .leaflet-control-attribution a{color:var(--cyan) !important;}
 
-  .console{
-    position:absolute;z-index:500;background:var(--panel-2);
-    border:1px solid var(--border);backdrop-filter:blur(6px);
-    box-shadow:0 8px 24px rgba(0,0,0,0.4);
+  @keyframes riseIn{ from{opacity:0; transform:translateY(10px);} to{opacity:1; transform:translateY(0);} }
+  @keyframes riseInCentered{ from{opacity:0; transform:translateX(-50%) translateY(10px);} to{opacity:1; transform:translateX(-50%) translateY(0);} }
+  @keyframes emberPulse{
+    0%,100%{box-shadow:0 0 0 0 rgba(255,122,26,0.5);}
+    70%{box-shadow:0 0 0 8px rgba(255,122,26,0);}
   }
+  @keyframes scan{ 0%{transform:translateY(-100%);} 100%{transform:translateY(100%);} }
 
-  #leftColumn{ position:absolute; top:98px; left:18px; z-index:500; display:flex; flex-direction:column; gap:14px; }
-  #rightColumn{ position:absolute; top:98px; right:18px; z-index:500; display:flex; flex-direction:column; gap:14px; }
-  #leftColumn .console, #rightColumn .console{ position:static; }
+  /* ── Brand mark, minimal, top-right, out of the way ───────────────────── */
+  #brandMark{
+    position:absolute; z-index:800; top:18px; right:18px;
+    display:flex; align-items:center; gap:10px;
+    padding:10px 16px; background:var(--panel); border:1px solid var(--border); border-radius:4px;
+    animation:riseIn 0.5s ease-out 0.2s both;
+  }
+  #brandMark .glyph{ font-family:var(--font-display); font-size:18px; color:var(--ember); }
+  #brandMark .name{ font-family:var(--font-display); font-size:15px; color:var(--ink-hi); line-height:1.3; letter-spacing:0.01em; }
+  #brandMark .tag{ font-size:9px; letter-spacing:0.08em; color:var(--ink-dim); text-transform:uppercase; }
+  #brandMark .livepulse{ width:7px; height:7px; border-radius:50%; background:var(--ember); animation:emberPulse 2s infinite; margin-left:2px; }
 
-
-  #titlePanel{top:0;left:0;width:100%;height:82px;padding:12px 28px;border:0;border-bottom:1px solid var(--border);border-radius:0;background:var(--panel);color:var(--text-hi);display:grid;grid-template-columns:220px 1fr 220px;align-items:center;box-shadow:0 3px 12px rgba(0,0,0,.4);}
-  #titlePanel .eyebrow{
-    display:flex;align-items:center;gap:7px;
-    font-family:'Space Grotesk',sans-serif;font-size:11px;letter-spacing:0.14em;
-    color:var(--live);margin-bottom:4px;font-weight:600;
+  /* ── Icon rail: each icon independently summons its own floating card ─── */
+  #iconRail{
+    position:absolute; z-index:900; top:18px; left:18px;
+    display:flex; flex-direction:column; gap:8px;
+    animation:riseIn 0.5s ease-out 0.1s both;
   }
-  #titlePanel .eyebrow .dot{
-    width:7px;height:7px;border-radius:50%;background:var(--live);
-    animation:pulse 2s infinite;
+  .railIcon{
+    width:44px; height:44px; border-radius:4px;
+    background:var(--panel); border:1px solid var(--border);
+    display:flex; align-items:center; justify-content:center;
+    cursor:pointer; transition:border-color 0.15s, transform 0.15s, background 0.15s;
+    position:relative; padding:0;
   }
-  @keyframes pulse{
-    0%{box-shadow:0 0 0 0 rgba(79,209,165,0.5);}
-    70%{box-shadow:0 0 0 7px rgba(79,209,165,0);}
-    100%{box-shadow:0 0 0 0 rgba(79,209,165,0);}
-  }
-  #titlePanel h1{font-family:'Space Grotesk',sans-serif;font-weight:600;font-size:22px;margin:0;line-height:1.15;letter-spacing:-0.01em;color:var(--text-hi);
-  }
-  #titlePanel p{ margin:0;font-size:13px;color:var(--text-lo);line-height:1.5; }
-  #titlePanel .brandBlock{color:var(--text-hi);}
-  #titlePanel .brandMark{border-color:var(--live);color:var(--live);}
-  #titlePanel .brandBlock small{display:block;margin-top:2px;color:var(--live);font-size:10px;font-weight:500;letter-spacing:.04em;}
-  #titlePanel .locationBlock{color:var(--text-lo);}
-  #titlePanel .locationBlock strong{color:var(--text-hi);}
-  #titlePanel .prototypePill{border-color:var(--live);color:var(--live);}
-
-  /* ── Left column: routing, legend, gauge toggle, how-to ────────────── */
-  #routePanel{ padding:14px 18px; border-radius:2px; width:220px; }
-  .routeBtn{
-    width:100%;padding:8px 12px;border-radius:3px;border:1px solid var(--border);
-    background:var(--panel-2);color:var(--text-hi);cursor:pointer;font-size:13px;
-    font-family:'Source Sans 3',sans-serif;margin-top:8px;
-  }
-  .routeBtn:hover{border-color:var(--rain);}
-  .routeBtn.active{border-color:var(--rain);background:var(--rain);color:var(--ink);}
-  .routeClear{background:transparent;border-color:var(--d-severe);color:var(--d-severe);}
-  .routeStatus{font-size:12px;color:var(--text-lo);margin-top:8px;line-height:1.4;min-height:16px;}
-  .routeStatus.warn{color:var(--d-severe);font-weight:600;}
-  .routeStatus.ok{color:var(--live);}
-
-  #legend{ padding:14px 18px;border-radius:2px;width:210px; }
-  #legend .label{
-    font-family:'Space Grotesk',sans-serif;font-size:11px;letter-spacing:0.1em;
-    color:var(--text-lo);margin-bottom:10px;font-weight:600;
-  }
-  .legend-row{display:flex;align-items:center;gap:9px;margin-bottom:7px;font-size:13px;}
-  .legend-row:last-child{margin-bottom:0;}
-  .swatch{width:22px;height:7px;border-radius:2px;flex-shrink:0;}
-  .legend-row .lbl{color:var(--text-hi);font-weight:600;}
-  .legend-row .rng{color:var(--text-lo);font-family:'Space Mono',monospace;font-size:11px;margin-left:auto;}
-  .gaugeLegend{display:flex;align-items:center;gap:8px;margin-top:12px;padding-top:10px;border-top:1px solid var(--border);color:var(--text-lo);font-size:12px;}
-  .gaugeDot{width:9px;height:9px;border-radius:50%;background:var(--rain);border:2px solid #1976A8;}
-
-  #gaugeToggle{
-    padding:9px 12px;border-radius:2px;
-    display:flex;align-items:center;gap:9px;cursor:pointer;user-select:none;font-size:13px;
-  }
+  .railIcon:hover{ border-color:var(--ember-dim); transform:translateX(2px); }
+  .railIcon.active{ border-color:var(--ember); background:var(--ember-glow); }
+  .railIcon svg{ width:18px; height:18px; stroke:var(--ink-hi); fill:none; stroke-width:1.6; }
+  .railIcon.active svg{ stroke:var(--ember); }
   #gaugeToggle .box{
-    width:15px;height:15px;border:1.5px solid var(--rain);border-radius:3px;
-    display:flex;align-items:center;justify-content:center;flex-shrink:0;
+    position:absolute; top:6px; right:6px; width:7px; height:7px; border-radius:50%;
+    background:var(--border); transition:background 0.15s;
   }
-  #gaugeToggle .box.on{background:var(--rain);}
-  #gaugeToggle .box svg{width:10px;height:10px;display:none;}
-  #gaugeToggle .box.on svg{display:block;}
-  #gaugeToggle span.txt{color:var(--text-hi);}
+  #gaugeToggle .box.on{ background:var(--cyan); box-shadow:0 0 6px var(--cyan); }
 
-  #howTo{width:250px;padding:12px 14px;border-radius:2px;}
-  #howTo ol{margin:0;padding-left:18px;color:var(--text-lo);font-size:12px;line-height:1.5;}
-  #howTo .label{font-family:'Space Grotesk',sans-serif;font-size:11px;letter-spacing:.1em;color:var(--text-lo);margin-bottom:7px;font-weight:600;}
-  #howTo strong{color:var(--text-hi);font-weight:600;}
+  /* ── Floating instrument cards: independently opened, positioned by JS ── */
+  .floatCard{
+    position:fixed; z-index:950; width:270px;
+    background:var(--panel); border:1px solid var(--border); border-radius:6px;
+    padding:16px 18px; box-shadow:0 16px 40px rgba(0,0,0,0.55);
+    display:none; opacity:0; transform:scale(0.96);
+    transform-origin:left top;
+    transition:opacity 0.16s ease, transform 0.16s ease;
+  }
+  .floatCard.open{ display:block; }
+  .floatCard.shown{ opacity:1; transform:scale(1); }
+  .floatCard .cardClose{
+    position:absolute; top:10px; right:10px; width:20px; height:20px;
+    border:none; background:none; color:var(--ink-dim); cursor:pointer;
+    display:flex; align-items:center; justify-content:center; font-size:14px;
+  }
+  .floatCard .cardClose:hover{ color:var(--ember); }
+  .floatCard .label{ font-size:10px; letter-spacing:0.1em; color:var(--ink-dim); margin-bottom:12px; font-weight:600; text-transform:uppercase; }
 
-  /* ── Right column: risk level, distribution, model info ────────────── */
-  #riskLevelLegend{ width:230px; padding:14px 18px; border-radius:2px; }
+  /* ── Content styling (restored - these were lost when the drawer CSS ── */
+  /* section was replaced by the icon-rail rebuild; same content, now    */
+  /* living inside .floatCard instead of .dsection)                     */
+  .summaryItem{ padding:0; }
+  .summaryLabel{ display:block; color:var(--ink-dim); font-size:9px; letter-spacing:0.06em; text-transform:uppercase; margin-bottom:4px; }
+  .summaryValue{ display:block; color:var(--ink-hi); font-size:16px; font-weight:600; white-space:nowrap; }
+  #summaryRisk{ color:var(--ember); }
+  #summaryRisk.low{color:#4FD1A5;} #summaryRisk.moderate{color:var(--d-minor);}
+  #summaryRisk.high{color:var(--d-mod);} #summaryRisk.severe{color:var(--d-severe);}
+  .cardIcon{ display:none; }
 
-  #riskPanel{width:230px;padding:12px 14px;border-radius:2px;}
-  #riskPanel .label{font-family:'Space Grotesk',sans-serif;font-size:11px;letter-spacing:.1em;color:var(--text-lo);margin-bottom:7px;font-weight:600;}
-  .distributionWrap{display:grid;grid-template-columns:92px 1fr;gap:12px;align-items:center;}
-  #riskDonut{width:92px;height:92px;border-radius:50%;display:grid;place-items:center;background:#E7C24A;}
-  #riskDonut::after{content:'';width:54px;height:54px;border-radius:50%;background:var(--panel-2);grid-area:1/1;}
-  #donutTotal{grid-area:1/1;z-index:1;text-align:center;color:var(--text-hi);font-family:'Space Mono',monospace;font-size:15px;font-weight:700;}
-  #donutTotal small{display:block;font-family:'Source Sans 3',sans-serif;font-size:9px;font-weight:500;color:var(--text-lo);}
-  .distRow{display:grid;grid-template-columns:10px 1fr auto;align-items:center;gap:7px;margin:7px 0;color:var(--text-lo);font-size:12px;}
-  .distDot{width:9px;height:9px;border-radius:50%;}
-  .distCount{font-family:'Space Mono',monospace;color:var(--text-hi);font-weight:700;}
-  #trendValues{display:flex;justify-content:space-between;gap:5px;margin-top:6px;}
-  .trendItem{text-align:center;color:var(--text-lo);font-size:10px;}
-  .trendItem strong{display:block;color:var(--text-hi);font-family:'Space Mono',monospace;font-size:12px;margin-bottom:2px;}
-  #trendChart{width:100%;height:92px;display:block;margin-top:5px;overflow:hidden;}
+  .routeBtn{
+    width:100%;padding:11px 14px;border-radius:4px;border:1px solid var(--border);
+    background:var(--panel-2);color:var(--ink-hi);cursor:pointer;font-size:12px;
+    font-family:var(--font-mono);font-weight:600;letter-spacing:0.03em;margin-top:10px;
+    transition:border-color 0.15s, background 0.15s;
+  }
+  .routeBtn:hover{border-color:var(--ember);}
+  .routeBtn.active{border-color:var(--ember);background:var(--ember);color:var(--void);}
+  .routeClear{background:transparent;border-color:var(--d-severe);color:var(--d-severe);}
+  .routeStatus{font-size:11px;color:var(--ink-lo);margin-top:10px;line-height:1.5;min-height:16px;}
+  .routeStatus.warn{color:var(--d-severe);font-weight:600;}
+  .routeStatus.ok{color:var(--cyan);}
+
+  .legend-row{display:flex;align-items:center;gap:9px;margin-bottom:8px;font-size:12px;}
+  .legend-row:last-child{margin-bottom:0;}
+  .swatch{width:20px;height:6px;border-radius:2px;flex-shrink:0;}
+  .legend-row .lbl{color:var(--ink-hi);}
+  .legend-row .rng{color:var(--ink-dim);font-size:10px;margin-left:auto;}
+  .gaugeLegend{display:flex;align-items:center;gap:8px;margin-top:12px;padding-top:10px;border-top:1px solid var(--border);color:var(--ink-lo);font-size:11px;}
+  .gaugeDot{width:8px;height:8px;border-radius:50%;background:var(--cyan);border:2px solid var(--cyan-dim);}
+
+  #howTo ol{margin:0;padding-left:18px;color:var(--ink-lo);font-size:12px;line-height:1.6;}
+
+  .distributionWrap{display:grid;grid-template-columns:82px 1fr;gap:14px;align-items:center;}
+  #riskDonut{width:82px;height:82px;border-radius:50%;display:grid;place-items:center;background:var(--d-minor);}
+  #riskDonut::after{content:'';width:48px;height:48px;border-radius:50%;background:var(--panel-2);grid-area:1/1;}
+  #donutTotal{grid-area:1/1;z-index:1;text-align:center;color:var(--ink-hi);font-size:15px;font-weight:700;}
+  #donutTotal small{display:block;font-size:8px;font-weight:400;color:var(--ink-dim);text-transform:uppercase;}
+  .distRow{display:grid;grid-template-columns:9px 1fr auto;align-items:center;gap:7px;margin:6px 0;color:var(--ink-lo);font-size:11px;}
+  .distDot{width:8px;height:8px;border-radius:50%;}
+  .distCount{color:var(--ink-hi);font-weight:700;}
+  #trendChart{width:100%;height:88px;display:block;margin-top:8px;overflow:hidden;}
   #trendChart .grid{stroke:var(--border);stroke-width:1;}
-  #trendChart .axisLabel{fill:var(--text-lo);font:9px 'Source Sans 3',sans-serif;}
-  #trendChart .trendLine{fill:none;stroke:#E8913F;stroke-width:2.5;stroke-linecap:round;stroke-linejoin:round;}
-  #trendChart .trendPoint{fill:var(--panel-2);stroke:#E8913F;stroke-width:2;}
+  #trendChart .axisLabel{fill:var(--ink-dim);font:8px var(--font-mono);}
+  #trendChart .trendLine{fill:none;stroke:var(--ember);stroke-width:2;stroke-linecap:round;stroke-linejoin:round;}
+  #trendChart .trendPoint{fill:var(--panel-2);stroke:var(--ember);stroke-width:2;}
 
-
-  /* ── Bottom control bar ─────────────────────────────────────────────── */
-  #controlBar{left:50%;bottom:18px;transform:translateX(-50%);padding:12px 18px;border-radius:2px;display:flex;align-items:center;gap:16px;min-width:560px;}
-
+  /* ── Persistent bottom control: the time scrubber ─────────────────────── */
+  #controlBar{
+    position:absolute; z-index:800; left:50%;bottom:20px;transform:translateX(-50%);
+    padding:14px 22px;border-radius:6px;display:flex;align-items:center;gap:18px;min-width:520px;
+    background:var(--panel);border:1px solid var(--border);
+    animation:riseInCentered 0.5s ease-out 0.3s both;
+  }
   #playBtn{
     width:38px;height:38px;border-radius:50%;border:1px solid var(--border);
-    background:var(--panel-2);color:var(--text-hi);cursor:pointer;
+    background:var(--void);color:var(--ember);cursor:pointer;
     display:flex;align-items:center;justify-content:center;flex-shrink:0;
     transition:background 0.15s, border-color 0.15s;
   }
-  #playBtn:hover{border-color:var(--rain);}
+  #playBtn:hover{border-color:var(--ember);}
   #playBtn svg{width:14px;height:14px;}
-
   .sliderWrap{flex:1;display:flex;flex-direction:column;gap:8px;}
   .sliderTop{display:flex;justify-content:space-between;align-items:baseline;}
-  .sliderTop .horizon{font-family:'Space Grotesk',sans-serif;font-weight:600;font-size:15px;color:var(--text-hi);}
-  .sliderTop .clock{font-family:'Space Mono',monospace;font-size:12px;color:var(--text-lo);}
+  .sliderTop .horizon{font-family:var(--font-display);font-size:15px;color:var(--ink-hi);letter-spacing:0.01em;}
+  .sliderTop .clock{font-size:11px;color:var(--ink-dim);}
   input[type=range]{
-    -webkit-appearance:none;width:100%;height:4px;background:var(--border);
+    -webkit-appearance:none;width:100%;height:3px;background:var(--border);
     border-radius:2px;outline:none;margin:6px 0 2px 0;
   }
   input[type=range]::-webkit-slider-thumb{
-    -webkit-appearance:none;width:16px;height:16px;border-radius:50%;
-    background:var(--rain);border:2px solid var(--ink);cursor:pointer;box-shadow:0 0 0 2px var(--rain);
+    -webkit-appearance:none;width:15px;height:15px;border-radius:50%;
+    background:var(--ember);border:2px solid var(--void);cursor:pointer;box-shadow:0 0 0 2px var(--ember);
   }
   input[type=range]::-moz-range-thumb{
-    width:14px;height:14px;border-radius:50%;background:var(--rain);border:2px solid var(--ink);cursor:pointer;box-shadow:0 0 0 2px var(--rain);
+    width:13px;height:13px;border-radius:50%;background:var(--ember);border:2px solid var(--void);cursor:pointer;box-shadow:0 0 0 2px var(--ember);
   }
-  .ticks{display:flex;justify-content:space-between;font-size:10.5px;color:var(--text-lo);
-    font-family:'Space Mono',monospace;padding:0 1px;}
+  .ticks{display:flex;justify-content:space-between;font-size:9px;color:var(--ink-dim);padding:0 1px;}
 
   /* ── Popups ─────────────────────────────────────────────────────────── */
   .leaflet-popup-content-wrapper{
-    background:var(--panel-2);color:var(--text-hi);border:1px solid var(--border);
-    border-radius:3px;box-shadow:0 8px 20px rgba(0,0,0,0.5);
+    background:var(--panel);color:var(--ink-hi);border:1px solid var(--border);
+    border-radius:4px;box-shadow:0 12px 30px rgba(0,0,0,0.6);
   }
-  .leaflet-popup-tip{background:var(--panel-2);border:1px solid var(--border);}
-  .leaflet-popup-content{margin:12px 14px;font-family:'Source Sans 3',sans-serif;}
-  .popTitle{font-family:'Space Grotesk',sans-serif;font-weight:600;font-size:13px;margin-bottom:6px;letter-spacing:0.02em;}
-  .popRow{display:flex;justify-content:space-between;gap:16px;font-size:12.5px;padding:2px 0;color:var(--text-lo);}
-  .popRow b{color:var(--text-hi);font-family:'Space Mono',monospace;font-weight:400;}
-  .leaflet-popup-close-button{color:var(--text-lo) !important;}
+  .leaflet-popup-tip{background:var(--panel);border:1px solid var(--border);}
+  .leaflet-popup-content{margin:12px 14px;font-family:var(--font-mono);}
+  .popTitle{font-family:var(--font-display);font-size:13px;margin-bottom:6px;letter-spacing:0.01em;}
+  .popRow{display:flex;justify-content:space-between;gap:16px;font-size:11.5px;padding:2px 0;color:var(--ink-lo);}
+  .popRow b{color:var(--ember);font-weight:600;}
+  .leaflet-popup-close-button{color:var(--ink-dim) !important;}
 
-  #loadTag{
-    position:absolute;z-index:600;bottom:42px;left:18px;font-size:11px;
-    color:var(--text-lo);font-family:'Space Mono',monospace;
-  }
-  #footer{position:absolute;z-index:600;left:18px;right:18px;bottom:18px;display:flex;justify-content:space-between;align-items:flex-end;color:var(--text-lo);font-size:11px;line-height:1.4;pointer-events:none;}
-  #footer .footerRight{text-align:right;}
+  #footer{position:absolute;z-index:600;left:74px;right:18px;bottom:20px;display:none;}
 
-  /* ── Summary card (top center) ──────────────────────────────────────── */
-  #summaryCard{top:98px;left:50%;transform:translateX(-50%);display:flex;align-items:stretch;padding:0;border-radius:2px;overflow:hidden;}
-  .summaryItem{min-width:112px;padding:9px 14px;border-right:1px solid var(--border);}
-  .summaryItem:last-child{border-right:0;}
-  .summaryLabel{display:block;color:var(--text-lo);font-family:'Space Grotesk',sans-serif;font-size:10px;letter-spacing:.08em;text-transform:uppercase;margin-bottom:3px;}
-  .summaryValue{display:block;color:var(--text-hi);font-family:'Space Mono',monospace;font-size:14px;white-space:nowrap;}
-  #summaryRisk{font-family:'Space Grotesk',sans-serif;font-weight:600;}
-  #summaryRisk.low{color:#4FD1A5;}
-  #summaryRisk.moderate{color:#E7C24A;}
-  #summaryRisk.high{color:#E8913F;}
-  #summaryRisk.severe{color:#F06A5F;}
-
-  .cardIcon{display:inline-grid;place-items:center;width:20px;height:20px;margin-right:5px;border-radius:50%;background:rgba(29,154,120,0.18);color:#4FD1A5;font-size:13px;vertical-align:-3px;}
-  #summaryRisk .cardIcon{background:rgba(220,90,60,0.18);color:#F06A5F;}
-
-  .leaflet-control-scale-line{background:rgba(15,26,46,0.85);border-color:var(--border);color:var(--text-hi);font-size:10px;}
-  .northArrow{width:32px;height:42px;padding:4px 3px;text-align:center;color:var(--text-hi);background:rgba(15,26,46,.85);border:1px solid var(--border);border-radius:4px;box-shadow:0 2px 8px rgba(0,0,0,.4);font:bold 10px 'Space Grotesk',sans-serif;}
-  .northArrow span{display:block;font-size:24px;line-height:23px;}
+  .leaflet-control-scale-line{background:rgba(18,22,30,0.85);border-color:var(--border);color:var(--ink-hi);font-size:9px;font-family:var(--font-mono);}
+  .northArrow{width:30px;height:38px;padding:4px 3px;text-align:center;color:var(--ink-hi);background:var(--panel);border:1px solid var(--border);border-radius:4px;font:bold 9px var(--font-mono);}
+  .northArrow span{display:block;font-size:20px;line-height:20px;}
 
   @media (max-width:640px){
-    #titlePanel{min-width:0;width:calc(100% - 150px);padding:10px 12px;}
-    #titlePanel h1{font-size:16px;}
-    #legend{width:170px;top:150px;}
-    #gaugeToggle{top:340px;}
-    #summaryCard{top:94px;max-width:calc(100% - 36px);}
-    .summaryItem{min-width:0;padding:8px 9px;}
-    .summaryValue{font-size:11px;}
-    #riskPanel,#howTo{display:none;}
-    #controlBar{min-width:88vw;padding:12px 16px;gap:12px;bottom:14px;}
+    #brandMark{ padding:8px 12px; }
+    #brandMark .tag{ display:none; }
+    #drawer{ width:88vw; }
+    #controlBar{ min-width:86vw; padding:12px 16px; gap:12px; }
   }
-
 </style>
 </head>
 <body>
 
 <div id="map"></div>
 
-<div id="titlePanel" class="console">
-	<div class="brandBlock"><span class="brandMark">⌁</span><span>JalDrishti<small>Urban Flood Risk Early Warning</small></span></div>
-	<div><div class="eyebrow"><span class="dot"></span>LIVE NOWCAST</div><h1>Koramangala Flood Watch</h1><p>Relative flood-risk signal by street segment</p></div>
-	<div class="locationBlock"><span class="prototypePill">Prototype for SIH 2026</span><strong>Bengaluru | Ward: Koramangala</strong></div>
+<div id="brandMark">
+	<span class="glyph">⌁</span>
+	<div><div class="name">JalDrishti</div><div class="tag">Koramangala · Live nowcast</div></div>
+	<span class="livepulse"></span>
 </div>
 
-<div id="summaryCard" class="console" aria-live="polite">
-	<div class="summaryItem"><span class="summaryLabel"><span class="cardIcon">◷</span>Selected time</span><span class="summaryValue" id="summaryTime">T+0</span></div>
-	<div class="summaryItem"><span class="summaryLabel"><span class="cardIcon">☂</span>Predicted rainfall</span><span class="summaryValue" id="summaryRain">0.5 mm</span></div>
-	<div class="summaryItem"><span class="summaryLabel"><span class="cardIcon">!</span>Overall risk level</span><span class="summaryValue" id="summaryRisk">Moderate</span></div>
-	<div class="summaryItem"><span class="summaryLabel"><span class="cardIcon">▤</span>High-risk roads</span><span class="summaryValue" id="summaryRoads">0 / 159</span></div>
-	<div class="summaryItem"><span class="summaryLabel"><span class="cardIcon">⌖</span>Area</span><span class="summaryValue">Koramangala</span></div>
+<div id="iconRail">
+	<button class="railIcon" data-card="card-summary" title="Status" aria-label="Status">
+		<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3" stroke-linecap="round"/></svg>
+	</button>
+	<button class="railIcon" data-card="card-routing" title="Flood-aware routing" aria-label="Routing">
+		<svg viewBox="0 0 24 24"><path d="M4 18c4-8 6-8 8-8s4 0 8 8" stroke-linecap="round"/><circle cx="4" cy="18" r="1.6" fill="currentColor" stroke="none"/><circle cx="20" cy="18" r="1.6" fill="currentColor" stroke="none"/></svg>
+	</button>
+	<button class="railIcon" data-card="card-risklevel" title="Risk level" aria-label="Risk level">
+		<svg viewBox="0 0 24 24"><path d="M12 3l9 16H3z" stroke-linejoin="round"/><path d="M12 10v4" stroke-linecap="round"/><circle cx="12" cy="17" r="0.6" fill="currentColor" stroke="none"/></svg>
+	</button>
+	<button class="railIcon" data-card="card-distribution" title="Risk distribution" aria-label="Distribution">
+		<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="M12 4v8l6 4" stroke-linecap="round"/></svg>
+	</button>
+	<button class="railIcon" data-card="card-depth" title="Predicted depth" aria-label="Depth legend">
+		<svg viewBox="0 0 24 24"><path d="M3 15c2-2 4-2 6 0s4 2 6 0 4-2 6 0" stroke-linecap="round"/><path d="M3 10c2-2 4-2 6 0s4 2 6 0 4-2 6 0" stroke-linecap="round" opacity="0.5"/></svg>
+	</button>
+	<button class="railIcon" id="gaugeToggle" data-card="" title="Rain gauges" aria-label="Toggle rain gauges">
+		<span class="box" id="gaugeBox"></span>
+		<svg viewBox="0 0 24 24"><path d="M12 3c3 4 5 7 5 10a5 5 0 0 1-10 0c0-3 2-6 5-10z" stroke-linejoin="round"/></svg>
+	</button>
+	<button class="railIcon" data-card="card-info" title="How to read this map" aria-label="Info">
+		<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v5" stroke-linecap="round"/><circle cx="12" cy="8" r="0.6" fill="currentColor" stroke="none"/></svg>
+	</button>
+	<button class="railIcon" id="themeToggle" title="Toggle light/dark theme" aria-label="Toggle theme" style="margin-top:10px;">
+		<svg id="themeIconMoon" viewBox="0 0 24 24"><path d="M20 14.5A8.5 8.5 0 1 1 9.5 4a7 7 0 0 0 10.5 10.5z" stroke-linejoin="round"/></svg>
+		<svg id="themeIconSun" viewBox="0 0 24 24" style="display:none;"><circle cx="12" cy="12" r="4.5"/><path d="M12 2.5v2.5M12 19v2.5M4.2 4.2l1.8 1.8M18 18l1.8 1.8M2.5 12H5M19 12h2.5M4.2 19.8L6 18M18 6l1.8-1.8" stroke-linecap="round"/></svg>
+	</button>
 </div>
 
-<div id="leftColumn">
-  <div id="routePanel" class="console">
-    <div class="label">FLOOD-AWARE ROUTING</div>
-    <button id="routeModeBtn" class="routeBtn">Click to plan a route</button>
-    <div id="routeStatus" class="routeStatus"></div>
-    <button id="routeClearBtn" class="routeBtn routeClear" style="display:none;">Clear route</button>
-  </div>
-
-  <div id="legend" class="console">
-    <div class="label">PREDICTED DEPTH</div>
-    <div class="legend-row"><span class="swatch" style="background:var(--d-none)"></span><span class="lbl">No flooding</span><span class="rng">0 cm</span></div>
-    <div class="legend-row"><span class="swatch" style="background:var(--d-minor)"></span><span class="lbl">Minor</span><span class="rng">1–10</span></div>
-    <div class="legend-row"><span class="swatch" style="background:var(--d-mod)"></span><span class="lbl">Moderate</span><span class="rng">11–20</span></div>
-    <div class="legend-row"><span class="swatch" style="background:var(--d-severe)"></span><span class="lbl">Severe</span><span class="rng">21–28</span></div>
-    <div class="legend-row"><span class="swatch" style="background:var(--d-impass)"></span><span class="lbl">Impassable</span><span class="rng">29+</span></div>
-  </div>
-
-  <div id="gaugeToggle" class="console">
-    <div class="box" id="gaugeBox"><svg viewBox="0 0 10 10"><path d="M1 5L4 8L9 1" stroke="#0A1220" stroke-width="1.6" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
-    <span class="txt">Rain gauges</span>
-  </div>
-
-  <div id="howTo" class="console">
-	<div class="label">HOW TO READ THIS MAP?</div>
-	<ol>
-		<li>Each line is a street segment.</li>
-		<li>Color shows relative flood risk.</li>
-		<li>Rainfall and drainage proximity can raise risk.</li>
-		<li>This is not actual flood depth.</li>
-	</ol>
-</div>
+<div class="floatCard" id="card-summary">
+	<button class="cardClose">×</button>
+	<div class="label">Status</div>
+	<div id="summaryCard" aria-live="polite" style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+		<div class="summaryItem"><span class="summaryLabel">Selected time</span><span class="summaryValue" id="summaryTime">T+0</span></div>
+		<div class="summaryItem"><span class="summaryLabel">Rainfall</span><span class="summaryValue" id="summaryRain">0.5 mm</span></div>
+		<div class="summaryItem"><span class="summaryLabel">Risk level</span><span class="summaryValue" id="summaryRisk">Moderate</span></div>
+		<div class="summaryItem"><span class="summaryLabel">High-risk roads</span><span class="summaryValue" id="summaryRoads">0 / 159</span></div>
+	</div>
 </div>
 
-<div id="rightColumn">
-  <div id="riskLevelLegend" class="console">
-	<div class="label">RISK LEVEL</div>
-	<div class="legend-row"><span class="swatch" style="background:#4FD1A5"></span><span class="lbl">Low</span><span class="rng">0–0.25</span></div>
-	<div class="legend-row"><span class="swatch" style="background:#E7C24A"></span><span class="lbl">Moderate</span><span class="rng">0.25–0.45</span></div>
-	<div class="legend-row"><span class="swatch" style="background:#E8913F"></span><span class="lbl">High</span><span class="rng">0.45–0.80</span></div>
-	<div class="legend-row"><span class="swatch" style="background:#F06A5F"></span><span class="lbl">Severe</span><span class="rng">0.80+</span></div>
-	<div class="gaugeLegend"><span class="gaugeDot"></span>Rain Gauge Location</div>
+<div class="floatCard" id="card-routing">
+	<button class="cardClose">×</button>
+	<div class="label">Flood-aware routing</div>
+	<div id="routePanel">
+		<button id="routeModeBtn" class="routeBtn">Click to plan a route</button>
+		<div id="routeStatus" class="routeStatus"></div>
+		<button id="routeClearBtn" class="routeBtn routeClear" style="display:none;">Clear route</button>
+	</div>
 </div>
 
-  <div id="riskPanel" class="console">
-	<div class="label">RISK DISTRIBUTION · CURRENT VIEW</div>
-	<div class="distributionWrap"><div id="riskDonut"><span id="donutTotal">159<small>segments</small></span></div><div>
-		<div class="distRow"><span class="distDot" style="background:#4FD1A5"></span><span>Low</span><span class="distCount" id="distLow">0</span></div>
-		<div class="distRow"><span class="distDot" style="background:#E7C24A"></span><span>Moderate</span><span class="distCount" id="distModerate">0</span></div>
-		<div class="distRow"><span class="distDot" style="background:#E8913F"></span><span>High</span><span class="distCount" id="distHigh">0</span></div>
-		<div class="distRow"><span class="distDot" style="background:#F06A5F"></span><span>Severe</span><span class="distCount" id="distSevere">0</span></div>
-	</div></div>
-	<div class="label" style="margin-top:14px">RISK TREND · HIGH + SEVERE ROADS</div>
-	<svg id="trendChart" viewBox="0 0 210 92" role="img" aria-label="High and severe road trend"><line class="grid" x1="28" y1="10" x2="205" y2="10"></line><line class="grid" x1="28" y1="42" x2="205" y2="42"></line><line class="grid" x1="28" y1="74" x2="205" y2="74"></line><text class="axisLabel" x="0" y="13">0</text><text class="axisLabel" x="0" y="45" id="trendMidLabel">—</text><text class="axisLabel" x="0" y="77" id="trendMaxLabel">—</text><text class="axisLabel" x="2" y="88">No. of Roads</text><polyline id="trendLine" class="trendLine" points="28,74 87,74 146,74 205,74"></polyline><g id="trendPoints"></g><text class="axisLabel" x="18" y="91">T+0</text><text class="axisLabel" x="72" y="91">T+1h</text><text class="axisLabel" x="130" y="91">T+2h</text><text class="axisLabel" x="188" y="91">T+3h</text></svg>
+<div class="floatCard" id="card-risklevel">
+	<button class="cardClose">×</button>
+	<div class="label">Risk level</div>
+	<div id="riskLevelLegend">
+		<div class="legend-row"><span class="swatch" style="background:#4FD1A5"></span><span class="lbl">Low</span><span class="rng">0–0.25</span></div>
+		<div class="legend-row"><span class="swatch" style="background:#E8C24A"></span><span class="lbl">Moderate</span><span class="rng">0.25–0.45</span></div>
+		<div class="legend-row"><span class="swatch" style="background:#F2934A"></span><span class="lbl">High</span><span class="rng">0.45–0.80</span></div>
+		<div class="legend-row"><span class="swatch" style="background:#E4502F"></span><span class="lbl">Severe</span><span class="rng">0.80+</span></div>
+		<div class="gaugeLegend"><span class="gaugeDot"></span>Rain gauge location</div>
+	</div>
 </div>
 
-  
+<div class="floatCard" id="card-distribution" style="width:300px;">
+	<button class="cardClose">×</button>
+	<div class="label">Risk distribution</div>
+	<div id="riskPanel">
+		<div class="distributionWrap"><div id="riskDonut"><span id="donutTotal">159<small>segments</small></span></div><div>
+			<div class="distRow"><span class="distDot" style="background:#4FD1A5"></span><span>Low</span><span class="distCount" id="distLow">0</span></div>
+			<div class="distRow"><span class="distDot" style="background:#E8C24A"></span><span>Moderate</span><span class="distCount" id="distModerate">0</span></div>
+			<div class="distRow"><span class="distDot" style="background:#F2934A"></span><span>High</span><span class="distCount" id="distHigh">0</span></div>
+			<div class="distRow"><span class="distDot" style="background:#E4502F"></span><span>Severe</span><span class="distCount" id="distSevere">0</span></div>
+		</div></div>
+		<div class="label" style="margin-top:14px">Trend · high + severe</div>
+		<svg id="trendChart" viewBox="0 0 210 92" role="img" aria-label="High and severe road trend"><line class="grid" x1="28" y1="10" x2="205" y2="10"></line><line class="grid" x1="28" y1="42" x2="205" y2="42"></line><line class="grid" x1="28" y1="74" x2="205" y2="74"></line><text class="axisLabel" x="0" y="13">0</text><text class="axisLabel" x="0" y="45" id="trendMidLabel">—</text><text class="axisLabel" x="0" y="77" id="trendMaxLabel">—</text><polyline id="trendLine" class="trendLine" points="28,74 87,74 146,74 205,74"></polyline><g id="trendPoints"></g><text class="axisLabel" x="18" y="91">T+0</text><text class="axisLabel" x="72" y="91">T+1h</text><text class="axisLabel" x="130" y="91">T+2h</text><text class="axisLabel" x="188" y="91">T+3h</text></svg>
+	</div>
 </div>
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-<div id="controlBar" class="console">
-  <button id="playBtn" title="Play forecast">
-    <svg id="playIcon" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
-    <svg id="pauseIcon" viewBox="0 0 24 24" fill="currentColor" style="display:none"><path d="M6 5h4v14H6zM14 5h4v14h-4z"/></svg>
-  </button>
-  <div class="sliderWrap">
-    <div class="sliderTop">
-      <span class="horizon" id="horizonLabel">T+0</span>
-      <span class="clock" id="clockLabel">15:00 IST</span>
-    </div>
-    <input type="range" id="timeSlider" min="0" max="3" step="1" value="0">
-    <div class="ticks"><span>T+0</span><span>T+1h</span><span>T+2h</span><span>T+3h</span></div>
-  </div>
+<div class="floatCard" id="card-depth">
+	<button class="cardClose">×</button>
+	<div class="label">Predicted depth</div>
+	<div id="legend">
+		<div class="legend-row"><span class="swatch" style="background:var(--d-none)"></span><span class="lbl">No flooding</span><span class="rng">0 cm</span></div>
+		<div class="legend-row"><span class="swatch" style="background:var(--d-minor)"></span><span class="lbl">Minor</span><span class="rng">1–10</span></div>
+		<div class="legend-row"><span class="swatch" style="background:var(--d-mod)"></span><span class="lbl">Moderate</span><span class="rng">11–20</span></div>
+		<div class="legend-row"><span class="swatch" style="background:var(--d-severe)"></span><span class="lbl">Severe</span><span class="rng">21–28</span></div>
+		<div class="legend-row"><span class="swatch" style="background:var(--d-impass)"></span><span class="lbl">Impassable</span><span class="rng">29+</span></div>
+	</div>
 </div>
 
-<div id="loadTag">SEGMENTS: 159 &nbsp;·&nbsp; STEPS: 4 (T+0→T+3h) &nbsp;·&nbsp; WARD: KORAMANGALA</div>
-<div id="footer"><span>JalDrishti | Smart Cities, Safer Communities</span><span class="footerRight">Data-driven | People-centric | Flood Resilient Bengaluru</span></div>
+<div class="floatCard" id="card-info">
+	<button class="cardClose">×</button>
+	<div class="label">How to read this map</div>
+	<div id="howTo">
+		<ol>
+			<li>Each line is a street segment.</li>
+			<li>Color shows relative flood risk.</li>
+			<li>Rainfall and drainage proximity can raise risk.</li>
+			<li>This is not actual flood depth.</li>
+		</ol>
+	</div>
+</div>
+
+<div id="controlBar">
+	<button id="playBtn" title="Play forecast">
+		<svg id="playIcon" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+		<svg id="pauseIcon" viewBox="0 0 24 24" fill="currentColor" style="display:none"><path d="M6 5h4v14H6zM14 5h4v14h-4z"/></svg>
+	</button>
+	<div class="sliderWrap">
+		<div class="sliderTop">
+			<span class="horizon" id="horizonLabel">T+0</span>
+			<span class="clock" id="clockLabel">15:00 IST</span>
+		</div>
+		<input type="range" id="timeSlider" min="0" max="3" step="1" value="0">
+		<div class="ticks"><span>T+0</span><span>T+1h</span><span>T+2h</span><span>T+3h</span></div>
+	</div>
+</div>
+
+<script>
+/* ── Lightweight anchor + flip + shift positioning (no external dependency) ── */
+function positionFloatCard(trigger, card) {
+	const margin = 10;
+	const tRect = trigger.getBoundingClientRect();
+	card.style.left = '0px';
+	card.style.top = '0px';
+	card.classList.add('open');
+	const cRect = card.getBoundingClientRect();
+
+	let left = tRect.right + margin;
+	let top = tRect.top;
+
+	// Flip to the left of the trigger if it would overflow the right edge
+	if (left + cRect.width > window.innerWidth - margin) {
+		left = tRect.left - cRect.width - margin;
+	}
+	// Never go negative on the left
+	if (left < margin) left = margin;
+
+	// Shift vertically to stay fully on-screen
+	if (top + cRect.height > window.innerHeight - margin) {
+		top = window.innerHeight - cRect.height - margin;
+	}
+	if (top < margin) top = margin;
+
+	card.style.left = left + 'px';
+	card.style.top = top + 'px';
+}
+
+const allCards = document.querySelectorAll('.floatCard');
+const allTriggers = document.querySelectorAll('.railIcon[data-card]');
+
+function closeCard(card) {
+	card.classList.remove('shown');
+	setTimeout(() => { if (!card.classList.contains('shown')) card.classList.remove('open'); }, 160);
+}
+
+function closeAllCards() {
+	allCards.forEach(closeCard);
+	allTriggers.forEach(t => t.classList.remove('active'));
+}
+
+allTriggers.forEach(trigger => {
+	const cardId = trigger.getAttribute('data-card');
+	if (!cardId) return; // gaugeToggle has no card, handled separately by existing JS
+	const card = document.getElementById(cardId);
+	trigger.addEventListener('click', (e) => {
+		e.stopPropagation();
+		const isOpen = card.classList.contains('shown');
+		closeAllCards();
+		if (!isOpen) {
+			positionFloatCard(trigger, card);
+			requestAnimationFrame(() => card.classList.add('shown'));
+			trigger.classList.add('active');
+		}
+	});
+});
+
+document.querySelectorAll('.cardClose').forEach(btn => {
+	btn.addEventListener('click', (e) => {
+		e.stopPropagation();
+		closeAllCards();
+	});
+});
+
+document.addEventListener('click', (e) => {
+	if (!e.target.closest('.floatCard') && !e.target.closest('.railIcon')) {
+		closeAllCards();
+	}
+});
+
+window.addEventListener('resize', closeAllCards);
+
+/* ── Theme toggle, persisted across visits ────────────────────────────── */
+(function(){
+	const root = document.documentElement;
+	const moonIcon = document.getElementById('themeIconMoon');
+	const sunIcon = document.getElementById('themeIconSun');
+
+	function applyTheme(theme) {
+		if (theme === 'light') {
+			root.setAttribute('data-theme', 'light');
+			moonIcon.style.display = 'none';
+			sunIcon.style.display = 'block';
+		} else {
+			root.removeAttribute('data-theme');
+			moonIcon.style.display = 'block';
+			sunIcon.style.display = 'none';
+		}
+		// initDashboard() defines this once the map exists; guard in case
+		// the toggle is clicked before the map has finished loading.
+		if (window.jaldrishtiSwapMapTheme) window.jaldrishtiSwapMapTheme(theme);
+	}
+
+	let saved = null;
+	try { saved = localStorage.getItem('jaldrishti-theme'); } catch(e) {}
+	applyTheme(saved === 'light' ? 'light' : 'dark');
+
+	document.getElementById('themeToggle').addEventListener('click', (e) => {
+		e.stopPropagation();
+		const isLight = root.getAttribute('data-theme') === 'light';
+		const next = isLight ? 'dark' : 'light';
+		applyTheme(next);
+		try { localStorage.setItem('jaldrishti-theme', next); } catch(e) {}
+	});
+})();
+</script>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
-const BACKEND_URL = 'http://127.0.0.1:8000';
-const ROUTING_BACKEND_URL = 'http://127.0.0.1:8001';
+// Local dev (python -m http.server 5500, or opening the file directly): call the
+// two FastAPI services on localhost. Anywhere else (Docker, Azure) the page is
+// served by nginx, which proxies /api/ and /routing/ to them - same origin, no CORS.
+const USE_LOCAL_BACKENDS = location.protocol === 'file:' || location.port === '5500';
+const BACKEND_URL = USE_LOCAL_BACKENDS ? 'http://127.0.0.1:8000' : '';
+const ROUTING_BACKEND_URL = USE_LOCAL_BACKENDS ? 'http://127.0.0.1:8001' : '/routing';
 const WARD_ID = 'koramangala';
 
 const REAL_TIMESTAMPS = [
@@ -1048,11 +1285,26 @@ async function initDashboard() {
   });
   L.control.zoom({position:'bottomright'}).addTo(map);
   L.control.scale({imperial:false,maxWidth:100,position:'bottomleft'}).addTo(map);
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
-    attribution:'&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-    subdomains:'abc', maxZoom:19
-  }).addTo(map);
+  // A single colorful street map (real blue water, green parks, distinct
+  // Real OpenStreetMap tiles - keeps the built-in place/landmark markers
+  // (parks, buildings, amenity icons) that Esri's street style drops.
+  // Dark mode gets a gentle brightness dip via CSS, not a hue-inverting
+  // filter, so colors stay recognizable instead of turning muddy.
+  const streetTileLayer = L.tileLayer(
+    'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+    {
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+      subdomains: 'abc', maxZoom: 19
+    }
+  ).addTo(map);
+
+  window.jaldrishtiSwapMapTheme = function(theme) {
+    // Tiles themselves don't need swapping - the CSS rule on
+    // .leaflet-tile-pane (theme-gated) handles the dark-mode dimming.
+  };
+
   const wardBoundaryLayer = L.geoJSON(WARD_BOUNDARY,{style:{color:'#17324D',weight:2,opacity:0.9,fill:false,dashArray:'6 5'}}).addTo(map);
+  window.jaldrishtiTileLayersOnBottom = function(){ wardBoundaryLayer.bringToFront(); };
 
   const koramangalaBounds = wardBoundaryLayer.getBounds();
   if (koramangalaBounds.isValid()) {
@@ -1126,12 +1378,46 @@ async function initDashboard() {
         );
         line.addTo(routeLayerGroup);
       });
+
+      // Dotted connectors: your click -> the point where the route joins the road
+      let snapNote = '';
+      const firstWithPath = geojson.features.find(f => f.geometry.coordinates.length);
+      if (firstWithPath) {
+        const coords = firstWithPath.geometry.coordinates;
+        const [sLng, sLat] = coords[0];
+        const [eLng, eLat] = coords[coords.length - 1];
+        const snapMetres = {};
+        [[routeStart, sLat, sLng, 'start'], [routeEnd, eLat, eLng, 'destination']].forEach(([click, snapLat, snapLng, label]) => {
+          const metres = L.latLng(click.lat, click.lng).distanceTo(L.latLng(snapLat, snapLng));
+          if (metres < 3) return; // click was already on the road
+          snapMetres[label] = metres;
+          const link = L.polyline([[click.lat, click.lng], [snapLat, snapLng]], {
+            color: '#8B93A4', weight: 2, dashArray: '2,6', opacity: 0.9, lineCap: 'round'
+          });
+          link._isRouteLine = true; // cleared and redrawn with the routes
+          link.bindPopup(
+            '<div class="popTitle">Nearest road to your ' + label + '</div>' +
+            '<div class="popRow"><span>Distance</span><b>' + Math.round(metres) + ' m</b></div>'
+          );
+          link.addTo(routeLayerGroup);
+        });
+        const far = Object.entries(snapMetres).filter(([, m]) => m >= 25);
+        if (far.length === 2) {
+          snapNote = 'Start is ' + Math.round(snapMetres.start) + ' m and destination ' +
+            Math.round(snapMetres.destination) + ' m from the nearest road.';
+        } else if (far.length === 1) {
+          snapNote = (far[0][0] === 'start' ? 'Start' : 'Destination') + ' is ' +
+            Math.round(far[0][1]) + ' m from the nearest road.';
+        }
+      }
+      const withNote = msg => snapNote ? msg + '. ' + snapNote : msg;
+
       if (geojson.meta.safe_route_available === false) {
-        setRouteStatus('No safe route available - all paths blocked by flooding', 'warn');
+        setRouteStatus(withNote('No safe route available - all paths blocked by flooding'), 'warn');
       } else if (geojson.meta.avoided_segments && geojson.meta.avoided_segments.length > 0) {
-        setRouteStatus(`Safe route avoids ${geojson.meta.avoided_segments.length} flooded segment(s)`, 'ok');
+        setRouteStatus(withNote(`Safe route avoids ${geojson.meta.avoided_segments.length} flooded segment(s)`), 'ok');
       } else {
-        setRouteStatus('No flooding on this route', 'ok');
+        setRouteStatus(withNote('No flooding on this route'), 'ok');
       }
     } catch (e) {
       setRouteStatus("Can't reach routing backend (port 8001). Is it running?", 'warn');
@@ -1199,13 +1485,36 @@ async function initDashboard() {
     return layer;
   });
 
-  let gaugeLayers = GAUGE_DATA.map(stepData=>{
+  /* Gauge layers are matched to risk timesteps by TIMESTAMP, not array
+     position. Real gauge observations exist only up to T+0 (17:45); for the
+     forecast steps we show the last observed reading, dimmed and labeled. */
+  const gaugeByTs = new Map(GAUGE_DATA.map(g => [g.timestamp, g]));
+  const gaugeTimes = GAUGE_DATA.map(g => g.timestamp).sort();
+
+  function gaugeSetFor(ts){
+    if (gaugeByTs.has(ts)) return { set: gaugeByTs.get(ts), exact: true };
+    let latest = null;
+    for (const t of gaugeTimes) { if (t <= ts) latest = t; }
+    return latest ? { set: gaugeByTs.get(latest), exact: false } : null;
+  }
+
+  let gaugeLayers = REAL_TIMESTAMPS.map(ts => {
     const layer = L.layerGroup();
-    stepData.gauges.forEach(([lat,lon,rainfall])=>{
+    const match = gaugeSetFor(ts);
+    if (!match) return layer;
+    const note = match.exact
+      ? 'Observed ' + fmtClock(match.set.timestamp)
+      : 'Last observed ' + fmtClock(match.set.timestamp) + ' (no live reading for this time)';
+    match.set.gauges.forEach(([lat,lon,rainfall])=>{
       const marker = L.circleMarker([lat,lon],{
-        radius:6,color:'#1976A8',weight:2,fillColor:'#4FA8D8',fillOpacity:0.9
+        radius:6,color:'#1976A8',weight:2,fillColor:'#4FA8D8',
+        fillOpacity: match.exact ? 0.9 : 0.4
       });
-      marker.bindPopup('<div class="popTitle">Rain gauge</div><div class="popRow"><span>Rainfall</span><b>'+rainfall.toFixed(2)+' mm</b></div>');
+      marker.bindPopup(
+        '<div class="popTitle">Rain gauge</div>'+
+        '<div class="popRow"><span>Rainfall</span><b>'+rainfall.toFixed(2)+' mm</b></div>'+
+        '<div class="popRow" style="font-size:11px;margin-top:4px"><span>'+note+'</span></div>'
+      );
       marker.addTo(layer);
     });
     return layer;

@@ -1,0 +1,67 @@
+name: Container images
+
+# Builds the three runtime images. On pull requests it only builds (catches a
+# broken Dockerfile before merge); on push to main it also publishes them to
+# GitHub Container Registry as ghcr.io/<owner>/jaldrishti-{api,routing,frontend}.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "backend-api/**"
+      - "frontend-dashboard/**"
+      - "infra/docker/**"
+      - "data/processed/**"
+      - ".dockerignore"
+      - ".github/workflows/docker-images.yml"
+  pull_request:
+    branches: [main, dev]
+    paths:
+      - "backend-api/**"
+      - "frontend-dashboard/**"
+      - "infra/docker/**"
+      - ".dockerignore"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { name: api,      dockerfile: infra/docker/api.Dockerfile }
+          - { name: routing,  dockerfile: infra/docker/routing.Dockerfile }
+          - { name: frontend, dockerfile: infra/docker/frontend.Dockerfile }
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # Image names must be lowercase; GitHub user names may not be.
+      - name: Lowercase owner
+        run: echo "OWNER=${GITHUB_REPOSITORY_OWNER,,}" >> "$GITHUB_ENV"
+
+      - name: Build (and push on main)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ${{ matrix.dockerfile }}
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: |
+            ghcr.io/${{ env.OWNER }}/jaldrishti-${{ matrix.name }}:latest
+            ghcr.io/${{ env.OWNER }}/jaldrishti-${{ matrix.name }}:${{ github.sha }}
+          cache-from: type=gha,scope=${{ matrix.name }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.name }}

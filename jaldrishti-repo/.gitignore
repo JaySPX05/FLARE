@@ -15,6 +15,10 @@ data/processed/*
 *.gdb
 *.geojson
 !contracts/**/*.geojson
+# Small runtime files the Docker images need (made by scripts/07 and scripts/08).
+# They must come AFTER the *.geojson rule above, or that rule wins.
+!data/processed/flood_points_*.geojson
+!data/processed/*.graphml
 *.gpkg
 !data/processed/flood_points_final_clean.gpkg
 
@@ -64,4 +68,5 @@ Thumbs.db
 *.log
 
 backend-api/cache/
+cache/
 cache/

@@ -1,0 +1,5 @@
+# Runtime dependencies for the Risk API (main.py) - used by the Docker image.
+# Deliberately tiny: this service only serves pre-computed JSON.
+fastapi==0.115.0
+uvicorn[standard]==0.53.0
+pydantic==2.13.5

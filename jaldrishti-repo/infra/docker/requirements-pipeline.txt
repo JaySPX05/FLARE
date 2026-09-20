@@ -1,0 +1,15 @@
+# Offline GIS + nowcasting pipeline (scripts/01-08). Pinned to the versions
+# that reproduced data/processed/rainfall_multiplier.csv exactly (script 04).
+# If your own working virtualenv differs, replace these with `pip freeze` output.
+numpy==2.5.3
+pandas==3.0.6
+scipy==1.18.1
+geopandas==1.1.4
+shapely==2.1.2
+pyproj==3.8.0
+rasterio==1.5.1
+pysteps==1.21.5
+opencv-python-headless==5.0.0.93
+fastapi==0.115.0
+osmnx==2.1.1
+networkx==3.6.1

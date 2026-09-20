@@ -1,0 +1,59 @@
+# JalDrishti - run the whole stack locally:
+#     docker compose up --build
+# then open http://localhost:8080
+#
+# Offline data pipeline (on demand, needs ./data populated):
+#     docker compose run --rm pipeline scripts/04_rainfall_multiplier.py
+name: jaldrishti
+
+services:
+  api:
+    build:
+      context: .
+      dockerfile: infra/docker/api.Dockerfile
+    ports:
+      - "8000:8000"          # optional: http://localhost:8000/docs
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  routing:
+    build:
+      context: .
+      dockerfile: infra/docker/routing.Dockerfile
+    ports:
+      - "8001:8001"          # optional: http://localhost:8001/docs
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8001/')"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 90s      # room for a live OSM download if no saved graph is baked in
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: .
+      dockerfile: infra/docker/frontend.Dockerfile
+    ports:
+      - "8080:8080"
+    environment:
+      API_UPSTREAM: http://api:8000
+      ROUTING_UPSTREAM: http://routing:8001
+    depends_on:
+      api:
+        condition: service_healthy
+      routing:
+        condition: service_healthy
+    restart: unless-stopped
+
+  pipeline:
+    profiles: ["pipeline"]   # never started by a plain `docker compose up`
+    build:
+      context: .
+      dockerfile: infra/docker/pipeline.Dockerfile
+    volumes:
+      - ./data:/app/data

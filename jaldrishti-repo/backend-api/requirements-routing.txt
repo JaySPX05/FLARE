@@ -1,0 +1,6 @@
+# Runtime dependencies for the Routing API (routing_api.py) - used by the Docker image.
+fastapi==0.115.0
+uvicorn[standard]==0.53.0
+osmnx==2.1.1
+networkx==3.6.1
+shapely==2.1.2
