@@ -2,7 +2,7 @@
 #   /api/*      -> the Risk API      (API_UPSTREAM)
 #   /routing/*  -> the Routing API   (ROUTING_UPSTREAM)
 # so the browser only ever talks to one origin (no CORS, one public URL).
-#   docker build -f infra/docker/frontend.Dockerfile -t jaldrishti-frontend .
+#   docker build -f infra/docker/frontend.Dockerfile -t flare-frontend .
 FROM nginxinc/nginx-unprivileged:1.27-alpine
 
 # The image's entrypoint runs envsubst over /etc/nginx/templates/*.template at start-up

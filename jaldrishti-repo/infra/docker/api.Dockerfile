@@ -1,5 +1,5 @@
 # Risk API (backend-api/main.py). Build from the repo root:
-#   docker build -f infra/docker/api.Dockerfile -t jaldrishti-api .
+#   docker build -f infra/docker/api.Dockerfile -t flare-api .
 FROM python:3.12-slim
 
 ENV PYTHONDONTWRITEBYTECODE=1 \

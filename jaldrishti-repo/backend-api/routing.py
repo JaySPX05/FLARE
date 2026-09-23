@@ -1,5 +1,5 @@
 """
-Flood-aware custom Dijkstra routing for JalDrishti.
+Flood-aware custom Dijkstra routing for FLARE.
 
 This file contains:
 - A real OSM road graph loader (largest connected component only),
@@ -41,7 +41,7 @@ from shapely.ops import substring
 START_NODE = -1
 GOAL_NODE = -2
 
-_EDGE_INDEX_KEY = "_jaldrishti_edge_index"
+_EDGE_INDEX_KEY = "_flare_edge_index"
 
 
 def download_osm_graph(

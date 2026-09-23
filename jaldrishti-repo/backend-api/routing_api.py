@@ -1,5 +1,5 @@
 """
-JalDrishti flood-aware routing API.
+FLARE flood-aware routing API.
 
 This file:
 1. Loads the real Koramangala road network from OpenStreetMap.
@@ -51,7 +51,7 @@ async def lifespan(_app):
 
 
 app = FastAPI(
-    title="JalDrishti Routing API",
+    title="FLARE Routing API",
     version="1.1.0",
     lifespan=lifespan,
 )

@@ -1,10 +1,10 @@
-# JalDrishti - run the whole stack locally:
+# FLARE - run the whole stack locally:
 #     docker compose up --build
 # then open http://localhost:8080
 #
 # Offline data pipeline (on demand, needs ./data populated):
 #     docker compose run --rm pipeline scripts/04_rainfall_multiplier.py
-name: jaldrishti
+name: flare
 
 services:
   api:

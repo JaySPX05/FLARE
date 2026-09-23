@@ -1,4 +1,4 @@
-# Running JalDrishti in containers
+# Running FLARE in containers
 
 Three runtime images plus one on-demand pipeline image. All builds run from the **repo root**.
 

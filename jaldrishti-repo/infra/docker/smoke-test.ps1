@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-  Quick end-to-end check of a running JalDrishti stack (docker compose up, or a deployed URL).
+  Quick end-to-end check of a running FLARE stack (docker compose up, or a deployed URL).
 
 .EXAMPLE
   ./infra/docker/smoke-test.ps1                                   # http://localhost:8080
@@ -33,7 +33,7 @@ Check "nginx is up (/healthz)" {
 
 Check "dashboard page served (/)" {
     $r = Invoke-WebRequest -Uri "$BaseUrl/" -UseBasicParsing -TimeoutSec 20
-    if ($r.Content -notmatch "JalDrishti") { throw "index.html not returned" }
+    if ($r.Content -notmatch "FLARE") { throw "index.html not returned" }
 }
 
 $segments = $null

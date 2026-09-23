@@ -1,4 +1,4 @@
-# Git Workflow — JalDrishti
+# Git Workflow — FLARE
 
 **Part 1** is the team policy. **Part 2** is a beginner walkthrough if you have not used git in a team before. **Part 3** is a block you can paste into your AI assistant so it can guide you through this project specifically.
 
@@ -220,7 +220,7 @@ Paste the block below into Claude, ChatGPT, or whatever you use. It gives your a
 **Copy the whole block below:**
 
 ```text
-I'm working on a team software project called JalDrishti (an urban flood prediction system for a hackathon). I'm new to git and version control. Please act as a patient guide and help me with git commands, explaining what each one does before I run it.
+I'm working on a team software project called FLARE (Flood Localization & Alert Real-time Engine — an urban flood prediction system for a hackathon). I'm new to git and version control. Please act as a patient guide and help me with git commands, explaining what each one does before I run it.
 
 Here is my team's exact git setup — please follow these conventions and don't suggest alternatives that conflict with them:
 

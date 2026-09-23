@@ -4,14 +4,14 @@ Target: three Azure Container Apps in one environment, images pulled from GitHub
 (free; avoids Azure Container Registry's daily fee and its region restrictions on student subscriptions).
 
 ```
-Internet -> jaldrishti-frontend (public, nginx) -> jaldrishti-api      (internal)
-                                                -> jaldrishti-routing  (internal)
+Internet -> flare-frontend (public, nginx) -> flare-api      (internal)
+                                                -> flare-routing  (internal)
 ```
 
 ## One-time setup
 1. Install the Azure CLI, then `az login` (use the account that owns the Azure for Students subscription).
 2. Merge to `main` so the **Container images** workflow builds and pushes the three images.
-3. On GitHub -> your profile -> **Packages**: open `jaldrishti-api`, `jaldrishti-routing`, `jaldrishti-frontend`
+3. On GitHub -> your profile -> **Packages**: open `flare-api`, `flare-routing`, `flare-frontend`
    -> Package settings -> **Change visibility -> Public** (so Azure can pull them without credentials).
    If you prefer private packages, pass `-GhcrUser <you> -GhcrToken <PAT with read:packages>` to the script.
 
@@ -34,7 +34,7 @@ Re-running the script updates the apps to the newest `latest` images.
 | `RequestDisallowedByAzure` | The region isn't in your subscription's allowed list (Azure Policy -> Assignments -> "Allowed resource deployment regions"). Use `-Region` with one that is. |
 | "Container Apps is not offered in ..." | Pick a region from the list the script prints. |
 | Site shows 502 for a few seconds after idle | Cold start from scale-to-zero. Use `-Demo` before presenting. |
-| App won't start | `az containerapp logs show -n jaldrishti-routing -g jaldrishti-rg --follow` |
+| App won't start | `az containerapp logs show -n flare-routing -g flare-rg --follow` |
 | Image pull error | The ghcr.io package is still private, or the workflow hasn't pushed the image yet. |
 
 ## Cost notes

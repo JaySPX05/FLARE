@@ -1,4 +1,4 @@
-# JalDrishti
+# FLARE — Flood Localization & Alert Real-time Engine
 
 **Real-time urban flood nowcasting for Bengaluru — street-level, 0–3 hour lead time.**
 

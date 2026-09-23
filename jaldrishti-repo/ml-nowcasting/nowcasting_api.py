@@ -18,7 +18,7 @@ try:
 except ImportError:
     PYSTEPS_AVAILABLE = False
 
-app = FastAPI(title="JalDrishti Nowcasting API")
+app = FastAPI(title="FLARE Nowcasting API")
 
 CSV_PATH = os.path.join(os.path.dirname(__file__), "historical_rainfall.csv")
 

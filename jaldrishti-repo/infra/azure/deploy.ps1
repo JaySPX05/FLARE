@@ -1,14 +1,14 @@
 <#
 .SYNOPSIS
-  Deploy JalDrishti to Azure Container Apps (works on an Azure for Students subscription).
+  Deploy FLARE to Azure Container Apps (works on an Azure for Students subscription).
 
 .DESCRIPTION
   Creates (or updates) three container apps in one environment, pulling the images that
   the "Container images" GitHub Action pushes to ghcr.io:
 
-    jaldrishti-api        internal   Risk API
-    jaldrishti-routing    internal   Routing API
-    jaldrishti-frontend   PUBLIC     nginx: dashboard + proxy to the two above
+    flare-api        internal   Risk API
+    flare-routing    internal   Routing API
+    flare-frontend   PUBLIC     nginx: dashboard + proxy to the two above
 
   Safe to re-run: existing apps are updated in place.
 
@@ -23,8 +23,8 @@
 param(
     [string]$Owner         = "jayspx05",          # GitHub user/org that owns the images (lowercase)
     [string]$Region        = "centralindia",      # must be one of YOUR subscription's allowed regions
-    [string]$ResourceGroup = "jaldrishti-rg",
-    [string]$EnvName       = "jaldrishti-env",
+    [string]$ResourceGroup = "flare-rg",
+    [string]$EnvName       = "flare-env",
     [string]$Tag           = "latest",
     [switch]$Demo,                                # min 1 replica per app (no cold start, uses credit)
     [switch]$Teardown,                            # delete the resource group and exit
@@ -111,14 +111,14 @@ function Deploy-App {
 $registry = "ghcr.io/$($Owner.ToLower())"
 
 # Backends first, so their names resolve when the frontend's nginx starts.
-Deploy-App -Name "jaldrishti-api"      -Image "$registry/jaldrishti-api:$Tag"      -Port 8000 -Ingress "internal" -Cpu "0.25" -Memory "0.5Gi"
-Deploy-App -Name "jaldrishti-routing"  -Image "$registry/jaldrishti-routing:$Tag"  -Port 8001 -Ingress "internal" -Cpu "0.5"  -Memory "1.0Gi"
+Deploy-App -Name "flare-api"      -Image "$registry/flare-api:$Tag"      -Port 8000 -Ingress "internal" -Cpu "0.25" -Memory "0.5Gi"
+Deploy-App -Name "flare-routing"  -Image "$registry/flare-routing:$Tag"  -Port 8001 -Ingress "internal" -Cpu "0.5"  -Memory "1.0Gi"
 
 # Apps in one environment reach each other by app name (http://<app-name>).
-Deploy-App -Name "jaldrishti-frontend" -Image "$registry/jaldrishti-frontend:$Tag" -Port 8080 -Ingress "external" -Cpu "0.25" -Memory "0.5Gi" `
-    -EnvVars @("API_UPSTREAM=http://jaldrishti-api", "ROUTING_UPSTREAM=http://jaldrishti-routing")
+Deploy-App -Name "flare-frontend" -Image "$registry/flare-frontend:$Tag" -Port 8080 -Ingress "external" -Cpu "0.25" -Memory "0.5Gi" `
+    -EnvVars @("API_UPSTREAM=http://flare-api", "ROUTING_UPSTREAM=http://flare-routing")
 
-$fqdn = Invoke-Az containerapp show --name "jaldrishti-frontend" --resource-group $ResourceGroup `
+$fqdn = Invoke-Az containerapp show --name "flare-frontend" --resource-group $ResourceGroup `
     --query properties.configuration.ingress.fqdn --output tsv
 
 Write-Host ""

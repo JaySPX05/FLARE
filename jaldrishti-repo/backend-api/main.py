@@ -1,5 +1,5 @@
 """
-JalDrishti Backend — Risk API
+FLARE Backend — Risk API
 
 Real GIS pipeline data from Pair 1 is now live: data/processed/risk_lookup_<ward_id>.json,
 served via data_loader.py, matching contracts/risk-lookup-table-format.md.
@@ -26,7 +26,7 @@ from pydantic import BaseModel
 
 import data_loader
 
-app = FastAPI(title="JalDrishti Risk API", version="1.0.0")
+app = FastAPI(title="FLARE Risk API", version="1.0.0")
 
 # Allow the frontend dev server to call this API from a different port/origin.
 # Tighten this before any real deployment.
@@ -68,7 +68,7 @@ class FloodPointsResponse(BaseModel):
 
 @app.get("/")
 def health_check():
-    return {"status": "ok", "service": "jaldrishti-backend"}
+    return {"status": "ok", "service": "flare-backend"}
 
 
 @app.get("/api/v1/risk", response_model=RiskResponse)

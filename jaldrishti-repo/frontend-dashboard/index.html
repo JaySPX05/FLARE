@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Koramangala Flood Watch</title>
+<title>FLARE — Koramangala Flood Watch</title>
 <style>
 /* required styles */
 
@@ -917,7 +917,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
 
 <div id="brandMark">
 	<span class="glyph">⌁</span>
-	<div><div class="name">JalDrishti</div><div class="tag">Koramangala · Live nowcast</div></div>
+	<div title="Flood Localization &amp; Alert Real-time Engine"><div class="name">FLARE</div><div class="tag">Koramangala · Live nowcast</div></div>
 	<span class="livepulse"></span>
 </div>
 
@@ -1130,11 +1130,11 @@ window.addEventListener('resize', closeAllCards);
 		}
 		// initDashboard() defines this once the map exists; guard in case
 		// the toggle is clicked before the map has finished loading.
-		if (window.jaldrishtiSwapMapTheme) window.jaldrishtiSwapMapTheme(theme);
+		if (window.flareSwapMapTheme) window.flareSwapMapTheme(theme);
 	}
 
 	let saved = null;
-	try { saved = localStorage.getItem('jaldrishti-theme'); } catch(e) {}
+	try { saved = localStorage.getItem('flare-theme'); } catch(e) {}
 	applyTheme(saved === 'light' ? 'light' : 'dark');
 
 	document.getElementById('themeToggle').addEventListener('click', (e) => {
@@ -1142,7 +1142,7 @@ window.addEventListener('resize', closeAllCards);
 		const isLight = root.getAttribute('data-theme') === 'light';
 		const next = isLight ? 'dark' : 'light';
 		applyTheme(next);
-		try { localStorage.setItem('jaldrishti-theme', next); } catch(e) {}
+		try { localStorage.setItem('flare-theme', next); } catch(e) {}
 	});
 })();
 </script>
@@ -1298,13 +1298,13 @@ async function initDashboard() {
     }
   ).addTo(map);
 
-  window.jaldrishtiSwapMapTheme = function(theme) {
+  window.flareSwapMapTheme = function(theme) {
     // Tiles themselves don't need swapping - the CSS rule on
     // .leaflet-tile-pane (theme-gated) handles the dark-mode dimming.
   };
 
   const wardBoundaryLayer = L.geoJSON(WARD_BOUNDARY,{style:{color:'#17324D',weight:2,opacity:0.9,fill:false,dashArray:'6 5'}}).addTo(map);
-  window.jaldrishtiTileLayersOnBottom = function(){ wardBoundaryLayer.bringToFront(); };
+  window.flareTileLayersOnBottom = function(){ wardBoundaryLayer.bringToFront(); };
 
   const koramangalaBounds = wardBoundaryLayer.getBounds();
   if (koramangalaBounds.isValid()) {

@@ -1,5 +1,5 @@
 # Routing API (backend-api/routing_api.py + routing.py). Build from the repo root:
-#   docker build -f infra/docker/routing.Dockerfile -t jaldrishti-routing .
+#   docker build -f infra/docker/routing.Dockerfile -t flare-routing .
 FROM python:3.12-slim
 
 ENV PYTHONDONTWRITEBYTECODE=1 \

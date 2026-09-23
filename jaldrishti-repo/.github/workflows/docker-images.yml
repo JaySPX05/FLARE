@@ -2,7 +2,7 @@ name: Container images
 
 # Builds the three runtime images. On pull requests it only builds (catches a
 # broken Dockerfile before merge); on push to main it also publishes them to
-# GitHub Container Registry as ghcr.io/<owner>/jaldrishti-{api,routing,frontend}.
+# GitHub Container Registry as ghcr.io/<owner>/flare-{api,routing,frontend}.
 
 on:
   push:
@@ -61,7 +61,7 @@ jobs:
           file: ${{ matrix.dockerfile }}
           push: ${{ github.event_name != 'pull_request' }}
           tags: |
-            ghcr.io/${{ env.OWNER }}/jaldrishti-${{ matrix.name }}:latest
-            ghcr.io/${{ env.OWNER }}/jaldrishti-${{ matrix.name }}:${{ github.sha }}
+            ghcr.io/${{ env.OWNER }}/flare-${{ matrix.name }}:latest
+            ghcr.io/${{ env.OWNER }}/flare-${{ matrix.name }}:${{ github.sha }}
           cache-from: type=gha,scope=${{ matrix.name }}
           cache-to: type=gha,mode=max,scope=${{ matrix.name }}
