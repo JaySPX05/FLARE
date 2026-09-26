@@ -694,10 +694,10 @@ svg.leaflet-image-layer.leaflet-interactive path {
     --font-mono:'Martian Mono', monospace;
   }
   :root[data-theme="light"]{
-    --void:#EEF1F5;
-    --panel:#FFFFFF;
-    --panel-2:#F6F7F9;
-    --border:#D8DEE6;
+    --void:#EFE3C9;
+    --panel:#F7EEDA;
+    --panel-2:#F0E4C9;
+    --border:#DFCDA0;
     --border-glow:#F0DDBE;
     --ink-hi:#1A2233;
     --ink-lo:#5B6576;
@@ -734,10 +734,16 @@ svg.leaflet-image-layer.leaflet-interactive path {
       var(--void);
   }
   .leaflet-container{background:transparent !important;}
-  /* Gentle dark-mode dimming - brightness/contrast only, no hue rotation,
-     so the map's real colors (blue water, green parks) stay recognizable
-     instead of turning into an inverted, muddy mess. */
+  /* Dark-mode dimming: the map is always Liberty (OpenFreeMap's "dark" style
+     is unfinished per their own docs), so this filter is how dark mode dims
+     it - applying identically whether the tile pane holds the MapLibre
+     vector canvas or the raster fallback, both live in .leaflet-tile-pane. */
   :root:not([data-theme="light"]) .leaflet-tile-pane{ filter: brightness(0.6) saturate(0.9) contrast(1.05); }
+  /* Light mode: OpenFreeMap's styles (Liberty included) are deliberately
+     pastel by design - it's the whole family's character, not a rendering
+     problem - so a mild saturation/contrast boost makes the map read as
+     more vivid without fighting the style itself. */
+  :root[data-theme="light"] .leaflet-tile-pane{ filter: saturate(1.7) contrast(1.12); }
   .leaflet-control-zoom a{background:var(--panel) !important;color:var(--ink-hi) !important;border-color:var(--border) !important;font-family:var(--font-mono) !important;}
   .leaflet-control-zoom a:hover{background:var(--panel-2) !important;color:var(--ember) !important;}
   .leaflet-control-attribution{background:rgba(10,13,18,0.8) !important;color:var(--ink-dim) !important;font-size:10px !important;font-family:var(--font-mono) !important;}
@@ -1147,7 +1153,10 @@ window.addEventListener('resize', closeAllCards);
 })();
 </script>
 
+<link href="https://cdn.jsdelivr.net/npm/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet">
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@maplibre/maplibre-gl-leaflet@0.1.4/leaflet-maplibre-gl.js"></script>
 <script>
 // Local dev (python -m http.server 5500, or opening the file directly): call the
 // two FastAPI services on localhost. Anywhere else (Docker, Azure) the page is
@@ -1285,22 +1294,64 @@ async function initDashboard() {
   });
   L.control.zoom({position:'bottomright'}).addTo(map);
   L.control.scale({imperial:false,maxWidth:100,position:'bottomleft'}).addTo(map);
-  // A single colorful street map (real blue water, green parks, distinct
-  // Real OpenStreetMap tiles - keeps the built-in place/landmark markers
-  // (parks, buildings, amenity icons) that Esri's street style drops.
-  // Dark mode gets a gentle brightness dip via CSS, not a hue-inverting
-  // filter, so colors stay recognizable instead of turning muddy.
-  const streetTileLayer = L.tileLayer(
-    'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
-    {
-      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-      subdomains: 'abc', maxZoom: 19
+  // Real map rendering: OpenFreeMap's vector tiles via MapLibre GL - free, no
+  // API key (unlike CARTO's tiles, which now require one - see infra notes),
+  // and it ships genuine light/dark styles instead of a CSS dimming filter.
+  // If the browser has no WebGL (old hardware, some locked-down demo laptops,
+  // GPU driver issues), this falls back to the original raster OSM tiles.
+  function hasWebGL() {
+    try {
+      const c = document.createElement('canvas');
+      return !!(window.WebGLRenderingContext &&
+        (c.getContext('webgl') || c.getContext('experimental-webgl')));
+    } catch (e) { return false; }
+  }
+
+  // Always Liberty - OpenFreeMap's colorful, complete style. OpenFreeMap's own
+  // "dark" style is explicitly unfinished ("not yet complete... unmodified,
+  // exactly as it is on their source repo" per their own docs), so dark mode
+  // dims Liberty with a CSS filter instead of switching to it - the same
+  // technique the old raster tiles used, now applied to both engines equally.
+  const LIBERTY_STYLE = 'https://tiles.openfreemap.org/styles/liberty';
+
+  let vectorLayer = null;
+  let rasterLayer = null;
+
+  function addRasterFallback() {
+    if (rasterLayer) return;
+    rasterLayer = L.tileLayer(
+      'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+      {
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+        subdomains: 'abc', maxZoom: 19
+      }
+    ).addTo(map);
+  }
+
+  if (hasWebGL()) {
+    try {
+      vectorLayer = L.maplibreGL({ style: LIBERTY_STYLE });
+      vectorLayer.on('error', () => { if (!rasterLayer) { vectorLayer.remove(); addRasterFallback(); } });
+      vectorLayer.addTo(map);
+      // Liberty's own land color (#f8f4f0) is only a faint off-white, much
+      // weaker than the UI's own cream tone - override just this one layer
+      // so the map's base color actually matches the cards, without
+      // touching roads, water or parks, which already read fine as-is.
+      vectorLayer.getMaplibreMap().on('load', () => {
+        try { vectorLayer.getMaplibreMap().setPaintProperty('background', 'background-color', '#F5ECD6'); }
+        catch (e) {}
+      });
+    } catch (e) {
+      addRasterFallback();
     }
-  ).addTo(map);
+  } else {
+    addRasterFallback();
+  }
 
   window.flareSwapMapTheme = function(theme) {
-    // Tiles themselves don't need swapping - the CSS rule on
-    // .leaflet-tile-pane (theme-gated) handles the dark-mode dimming.
+    // The map's own style never changes - only the CSS filter on
+    // .leaflet-tile-pane (which holds both the vector canvas and the raster
+    // fallback) toggles, so this is a no-op; the filter rule does the work.
   };
 
   const wardBoundaryLayer = L.geoJSON(WARD_BOUNDARY,{style:{color:'#17324D',weight:2,opacity:0.9,fill:false,dashArray:'6 5'}}).addTo(map);
