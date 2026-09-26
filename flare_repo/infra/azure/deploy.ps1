@@ -114,9 +114,23 @@ $registry = "ghcr.io/$($Owner.ToLower())"
 Deploy-App -Name "flare-api"      -Image "$registry/flare-api:$Tag"      -Port 8000 -Ingress "internal" -Cpu "0.25" -Memory "0.5Gi"
 Deploy-App -Name "flare-routing"  -Image "$registry/flare-routing:$Tag"  -Port 8001 -Ingress "internal" -Cpu "0.5"  -Memory "1.0Gi"
 
-# Apps in one environment reach each other by app name (http://<app-name>).
+# Apps in one environment resolve each other's bare name (http://<app-name>) through
+# Azure's normal request-routing path, but a plain nginx `resolver` directive does its
+# own DNS lookup as a separate step, and the bare name doesn't resolve that way at all.
+# Rather than guess the internal-FQDN pattern by hand (it isn't consistent across
+# docs/environments - this one has no ".internal." segment at all), ask Azure for each
+# app's own real address, the same way this script already does for flare-frontend below.
+$apiFqdn = Invoke-Az containerapp show --name "flare-api" --resource-group $ResourceGroup `
+    --query properties.configuration.ingress.fqdn --output tsv
+$routingFqdn = Invoke-Az containerapp show --name "flare-routing" --resource-group $ResourceGroup `
+    --query properties.configuration.ingress.fqdn --output tsv
+
 Deploy-App -Name "flare-frontend" -Image "$registry/flare-frontend:$Tag" -Port 8080 -Ingress "external" -Cpu "0.25" -Memory "0.5Gi" `
-    -EnvVars @("API_UPSTREAM=http://flare-api", "ROUTING_UPSTREAM=http://flare-routing")
+    -EnvVars @(
+        "API_UPSTREAM=https://$apiFqdn",
+        "ROUTING_UPSTREAM=https://$routingFqdn",
+        "DNS_RESOLVER=168.63.129.16"
+    )
 
 $fqdn = Invoke-Az containerapp show --name "flare-frontend" --resource-group $ResourceGroup `
     --query properties.configuration.ingress.fqdn --output tsv
