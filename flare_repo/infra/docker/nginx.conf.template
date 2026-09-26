@@ -1,7 +1,15 @@
-# Rendered at container start: ${API_UPSTREAM} and ${ROUTING_UPSTREAM} come from the environment.
+# Rendered at container start: ${API_UPSTREAM}, ${ROUTING_UPSTREAM} and ${DNS_RESOLVER} come from the environment.
 server {
     listen 8080;
     server_name _;
+
+    # Resolve the other two apps' hostnames per-request instead of once at startup.
+    # A plain `proxy_pass http://flare-api;` is resolved once, when nginx parses this
+    # config, and nginx refuses to start at all if that lookup fails at that instant -
+    # which it reliably does on a cold start, since a scaled-to-zero app isn't always
+    # resolvable yet. Using a variable defers the lookup to request time instead, so a
+    # temporarily-unresolvable upstream can no longer take the whole server down.
+    resolver ${DNS_RESOLVER} valid=10s;
 
     root /usr/share/nginx/html;
     index index.html;
@@ -17,17 +25,27 @@ server {
     }
 
     # Risk API: the /api/ prefix is part of the real route, so pass it through untouched.
+    # $request_uri is used explicitly (not left implicit) because a variable-based
+    # proxy_pass cannot rewrite the path at all - it always forwards the exact
+    # original request URI, whatever comes after it in this directive.
     location /api/ {
-        proxy_pass ${API_UPSTREAM};
+        set $api_upstream "${API_UPSTREAM}";
+        proxy_pass $api_upstream$request_uri;
         proxy_http_version 1.1;
         proxy_ssl_server_name on;
         proxy_connect_timeout 10s;
         proxy_read_timeout 60s;
     }
 
-    # Routing API: /routing/route -> /route (the trailing slash strips the prefix).
+    # Routing API: /routing/route -> /route. A `rewrite ... break;` changes nginx's
+    # internal $uri (stripping the /routing/ prefix); the explicit $uri$is_args$args
+    # then sends that REWRITTEN path onward. A variable-based proxy_pass with nothing
+    # appended after it always sends $request_uri (the ORIGINAL, un-rewritten path)
+    # instead - which silently defeated the old trailing-slash prefix-strip trick.
     location /routing/ {
-        proxy_pass ${ROUTING_UPSTREAM}/;
+        set $routing_upstream "${ROUTING_UPSTREAM}";
+        rewrite ^/routing/(.*)$ /$1 break;
+        proxy_pass $routing_upstream$uri$is_args$args;
         proxy_http_version 1.1;
         proxy_ssl_server_name on;
         proxy_connect_timeout 10s;
