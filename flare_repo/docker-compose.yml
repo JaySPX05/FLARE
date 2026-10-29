@@ -70,6 +70,14 @@ services:
     build:
       context: .
       dockerfile: infra/docker/ingest.Dockerfile
+      # Build on the host's network: on the Azure VM, pip's connections to PyPI
+      # stalled inside BuildKit's own build network even though the host and
+      # ordinary containers reached PyPI instantly.
+      network: host
+    # Runtime on the host's network too, for the same reason (it only talks to
+    # IMD and writes to the shared volume - it exposes no ports, so nothing
+    # changes for the other services).
+    network_mode: host
     env_file:
       - path: .env           # IMD settings from probe_imd.py (optional file)
         required: false

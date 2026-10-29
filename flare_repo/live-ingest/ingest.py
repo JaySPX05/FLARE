@@ -264,7 +264,102 @@ def nowcast_ward_rates(df):
     return t0_rate, [t0_rate] * 3, "persistence", frame_times, bounds
 
 
+# ---------------------------------------------------------------- city nowcast fallback
+
+# IMD station-nowcast category -> representative rain rate (mm/h) for the band.
+# These are band mid-points chosen by us, NOT measurements: light < 5, moderate
+# 5-15, heavy > 15 mm/h (IMD's own category definitions). Thunderstorm
+# categories carry rain too, so they map to the matching intensity band.
+NOWCAST_BAND_RATE_MM_HR = {
+    2: 2.5,                         # light rain
+    4: 2.5,                         # light thunderstorm
+    7: 10.0, 9: 10.0,               # moderate rain / moderate thunderstorm
+    12: 20.0, 14: 20.0, 15: 20.0,   # heavy rain / severe / very severe thunderstorm
+    32: 20.0,                       # thunderstorm with hail
+}
+
+
+def nowcast_rate(summary):
+    """Strongest rain band in IMD's warning, as mm/h (0 for no rain-related category)."""
+    return max([NOWCAST_BAND_RATE_MM_HR.get(c, 0.0) for c in (summary or {}).get("codes", [])],
+               default=0.0)
+
+
+def nowcast_window(summary):
+    """(issued, valid_until) as aware datetimes, from Date + toi/Vupto (HHmm, IST)."""
+    try:
+        day = datetime.strptime(str(summary["date"]), "%Y-%m-%d")
+        issued = datetime.strptime(f"{str(summary['time_of_issue']).zfill(4)}", "%H%M")
+        upto = datetime.strptime(f"{str(summary['valid_upto']).zfill(4)}", "%H%M")
+    except (KeyError, TypeError, ValueError):
+        return None, None
+    issued_dt = day.replace(hour=issued.hour, minute=issued.minute, tzinfo=IST)
+    upto_dt = day.replace(hour=upto.hour, minute=upto.minute, tzinfo=IST)
+    if upto_dt <= issued_dt:                 # valid past midnight
+        upto_dt += timedelta(days=1)
+    return issued_dt, upto_dt
+
+
+def city_nowcast_steps(summary, now):
+    """
+    Four timesteps from IMD's city-level nowcast when no rain station is close
+    enough. Steps inside the warning's validity window get the band's rate;
+    steps after it get 0 (IMD has said nothing about them).
+    """
+    rate = nowcast_rate(summary)
+    issued, valid_until = nowcast_window(summary)
+    t0 = now.astimezone(IST).replace(second=0, microsecond=0)
+    t0 = t0 - timedelta(minutes=t0.minute % 15)
+    steps = []
+    for h in range(4):
+        ts = t0 + timedelta(hours=h)
+        in_window = valid_until is not None and ts <= valid_until and (issued is None or ts >= issued - timedelta(hours=1))
+        steps.append({"timestamp": iso_ist(ts),
+                      "rain_rate_mm_hr": rate if in_window else 0.0,
+                      "horizon_label": "T+0" if h == 0 else f"T+{h}h",
+                      "is_forecast": True})   # nothing here is a measurement
+    return steps, issued, valid_until
+
+
 # ---------------------------------------------------------------- one cycle
+
+def station_steps():
+    """Steps + gauges + metadata from nearby IMD AWS stations. Raises IMDError if not possible."""
+    near, rain_field, n_records = fetch_observations()
+    df = add_rain_rates(update_store(near))
+    t0_rate, fc_rates, method, frame_times, _ = nowcast_ward_rates(df)
+
+    newest = df["obs_time"].max().to_pydatetime()
+    t0 = newest.replace(second=0, microsecond=0)
+    steps = [{"timestamp": iso_ist(t0), "rain_rate_mm_hr": t0_rate,
+              "horizon_label": "T+0", "is_forecast": False}]
+    for h, rate in zip((1, 2, 3), fc_rates):
+        steps.append({"timestamp": iso_ist(t0 + timedelta(hours=h)), "rain_rate_mm_hr": rate,
+                      "horizon_label": f"T+{h}h", "is_forecast": True})
+
+    latest = df.sort_values("obs_time").groupby("station_id").tail(1)
+    gauges = [{
+        "station_id": r.station_id, "name": r.name, "district": r.district,
+        "lat": r.lat, "lon": r.lon, "distance_km": r.distance_km,
+        "observed_at": iso_ist(r.obs_time.to_pydatetime()),
+        "rain_rate_mm_hr": None if pd.isna(r.rain_rate_mm_hr) else round(float(r.rain_rate_mm_hr), 2),
+        "rain_since_0830_mm": None if pd.isna(r.rain_raw_mm) or config.IMD_RAIN_MODE != "cumulative"
+                              else round(float(r.rain_raw_mm), 1),
+    } for r in latest.itertuples()]
+
+    meta = {
+        "rain_source": "stations",
+        "newest_observation": iso_ist(newest),
+        "freshness_time": iso_ist(newest),
+        "stations_used": len(gauges),
+        "stations_in_state_feed": n_records,
+        "rain_field": rain_field,
+        "rain_mode": config.IMD_RAIN_MODE,
+        "nowcast_method": method,
+        "frames_used": [iso_ist(t.to_pydatetime()) for t in frame_times],
+    }
+    return steps, gauges, meta
+
 
 def run_cycle():
     started = datetime.now(timezone.utc)
@@ -272,47 +367,46 @@ def run_cycle():
     status.update({"last_attempt": started.isoformat(), "attribution": ATTRIBUTION})
 
     try:
-        near, rain_field, n_records = fetch_observations()
-        df = add_rain_rates(update_store(near))
-        t0_rate, fc_rates, method, frame_times, _ = nowcast_ward_rates(df)
-
-        newest = df["obs_time"].max().to_pydatetime()
-        t0 = newest.replace(second=0, microsecond=0)
-        steps = [{"timestamp": iso_ist(t0), "rain_rate_mm_hr": t0_rate,
-                  "horizon_label": "T+0", "is_forecast": False}]
-        for h, rate in zip((1, 2, 3), fc_rates):
-            steps.append({"timestamp": iso_ist(t0 + timedelta(hours=h)), "rain_rate_mm_hr": rate,
-                          "horizon_label": f"T+{h}h", "is_forecast": True})
-
-        latest = df.sort_values("obs_time").groupby("station_id").tail(1)
-        gauges = [{
-            "station_id": r.station_id, "name": r.name, "district": r.district,
-            "lat": r.lat, "lon": r.lon, "distance_km": r.distance_km,
-            "observed_at": iso_ist(r.obs_time.to_pydatetime()),
-            "rain_rate_mm_hr": None if pd.isna(r.rain_rate_mm_hr) else round(float(r.rain_rate_mm_hr), 2),
-            "rain_since_0830_mm": None if pd.isna(r.rain_raw_mm) or config.IMD_RAIN_MODE != "cumulative"
-                                  else round(float(r.rain_raw_mm), 1),
-        } for r in latest.itertuples()]
-
+        # IMD's own nowcast for the city: shown as a chip, and the fallback rain signal.
         try:
             nc_records, _ = imd.fetch_station_nowcast()
             imd_nowcast = imd.parse_station_nowcast(nc_records)
         except imd.IMDError as e:
             print(f"  stationnowcast unavailable ({e})")
-            imd_nowcast = status.get("imd_nowcast")
+            imd_nowcast = None
 
-        meta = {
+        # Preferred: real rain readings from IMD stations near Koramangala.
+        station_error = None
+        try:
+            steps, gauges, meta = station_steps()
+        except imd.IMDError as e:
+            station_error = str(e)
+            steps = None
+
+        if steps is None:
+            if imd_nowcast is None:
+                raise imd.IMDError(f"No nearby station data ({station_error}) and no IMD city nowcast either")
+            steps, issued, valid_until = city_nowcast_steps(imd_nowcast, started)
+            gauges = []
+            meta = {
+                "rain_source": "city_nowcast",
+                "newest_observation": None,
+                "freshness_time": iso_ist(started),   # we fetched a current nowcast just now
+                "nowcast_issued": iso_ist(issued) if issued else None,
+                "nowcast_valid_until": iso_ist(valid_until) if valid_until else None,
+                "nowcast_station": imd_nowcast.get("station"),
+                "nowcast_categories": imd_nowcast.get("categories"),
+                "stations_used": 0,
+                "nowcast_method": "imd_city_nowcast",
+                "station_fallback_reason": station_error,
+            }
+            print(f"  no usable station data ({station_error}) - using IMD city nowcast")
+
+        meta.update({
             "generated_at": iso_ist(started),
-            "newest_observation": iso_ist(newest),
-            "stations_used": len(gauges),
-            "stations_in_state_feed": n_records,
-            "rain_field": rain_field,
-            "rain_mode": config.IMD_RAIN_MODE,
-            "nowcast_method": method,
-            "frames_used": [iso_ist(t.to_pydatetime()) for t in frame_times],
             "ward_rain_mm_hr": [round(s["rain_rate_mm_hr"], 2) for s in steps],
             "attribution": ATTRIBUTION,
-        }
+        })
         lookup = risk_engine.build_lookup(risk_engine.load_base_segments(), steps, meta)
 
         write_json_atomic(config.GAUGES_FILE, {
@@ -320,10 +414,15 @@ def run_cycle():
             "frames": [{"timestamp": steps[0]["timestamp"], "gauges": gauges}]})
         write_json_atomic(config.LIVE_LOOKUP_FILE, lookup)
 
+        # Drop keys from the other mode so status.json never mixes the two.
+        for key in ("newest_observation", "stations_in_state_feed", "rain_field", "rain_mode",
+                    "frames_used", "nowcast_issued", "nowcast_valid_until", "nowcast_station",
+                    "nowcast_categories", "station_fallback_reason"):
+            status.pop(key, None)
         status.update({"ok": True, "last_success": started.isoformat(), "last_error": None,
                        "imd_nowcast": imd_nowcast, **meta})
-        print(f"[{iso_ist(started)}] OK  stations={len(gauges)}  method={method}  "
-              f"ward rain (mm/h) T+0..3h = {meta['ward_rain_mm_hr']}")
+        print(f"[{iso_ist(started)}] OK  source={meta['rain_source']}  stations={len(gauges)}  "
+              f"method={meta['nowcast_method']}  ward rain (mm/h) T+0..3h = {meta['ward_rain_mm_hr']}")
     except Exception as e:
         status.update({"ok": False, "last_error": f"{type(e).__name__}: {e}"})
         print(f"[{iso_ist(started)}] FAILED  {e}")

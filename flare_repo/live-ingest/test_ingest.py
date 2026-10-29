@@ -153,11 +153,12 @@ def test_full_cycle_writes_lookup_gauges_and_status(live_dir, monkeypatch):
     times = hourly_reports(4)
     advance = fake_imd(monkeypatch, times)
 
-    # First report: nothing to difference against yet -> warm-up failure, no lookup.
-    assert ingest.run_cycle() is False
+    # First report: nothing to difference against yet, so this cycle falls back
+    # to IMD's city nowcast instead of failing.
+    assert ingest.run_cycle() is True
     status = json.loads((live_dir / "status.json").read_text())
-    assert "Not enough consecutive readings" in status["last_error"]
-    assert not (live_dir / "risk_lookup_koramangala.json").exists()
+    assert status["rain_source"] == "city_nowcast"
+    assert "Not enough consecutive readings" in status["station_fallback_reason"]
 
     for _ in range(3):
         advance()
@@ -188,6 +189,7 @@ def test_full_cycle_writes_lookup_gauges_and_status(live_dir, monkeypatch):
 
     status = json.loads((live_dir / "status.json").read_text())
     assert status["ok"] and status["last_error"] is None
+    assert status["rain_source"] == "stations" and "station_fallback_reason" not in status
     assert status["imd_nowcast"]["color"] == "orange"
 
 
@@ -274,3 +276,84 @@ def test_bad_login_does_not_leak_password(creds, monkeypatch):
     with pytest.raises(imd.IMDError) as e:
         imd.get_token()
     assert "secret" not in str(e.value) and "401" in str(e.value)
+
+
+# ---------------------------------------------------------------- city-nowcast fallback
+
+# Shape of the real 29-Oct-2026 Karnataka feed: stations exist, but the nearest is ~47 km away.
+FAR_STATIONS = [("KACHQ000", "CHANDURAYANGHALLI_KVK", 12.98, 77.20), ("KADOB000", "DODDABALLAPURA", 13.29, 77.54)]
+
+
+def far_aws_payload(t):
+    return json.dumps([{"ID": sid, "CALL_SIGN": None, "DISTRICT": "X", "STATION": name,
+                        "DATE": t.strftime("%Y-%m-%d"), "TIME": t.strftime("%H:%M:%S"),
+                        "Latitude": str(lat), "Longitude": str(lon), "RAINFALL": "0.0", "RAINFALL_SEL": "NULL"}
+                       for sid, name, lat, lon in FAR_STATIONS])
+
+
+def nowcast_payload(cats, toi, vupto, day):
+    row = {"Station": "Bengaluru City", "Date": day, "toi": toi, "Vupto": vupto, "color": "3", "message": None}
+    row.update({f"Cat{i}": str(c) for i, c in enumerate(cats, start=1)})
+    return json.dumps([row])
+
+
+def use_payloads(monkeypatch, aws_text, nowcast_text):
+    def fetch_raw(endpoint, params=None):
+        text = {"aws_data": aws_text, "stationnowcast": nowcast_text}.get(endpoint)
+        if text is None:
+            raise imd.IMDError("not in this test")
+        return imd.parse_lenient_json(text), text
+    monkeypatch.setattr(imd, "fetch_raw", fetch_raw)
+
+
+def test_no_nearby_station_falls_back_to_city_nowcast(live_dir, monkeypatch):
+    now = datetime.now(timezone.utc)
+    ist_now = now.astimezone(ingest.IST)
+    issued = (ist_now - timedelta(minutes=20)).strftime("%H%M")
+    upto = (ist_now + timedelta(minutes=100)).strftime("%H%M")
+    # Cat7 = moderate rain, Cat9 = moderate thunderstorm -> 10 mm/h band
+    use_payloads(monkeypatch, far_aws_payload(now),
+                 nowcast_payload([0, 0, 0, 0, 0, 0, 7, 0, 9], issued, upto, ist_now.strftime("%Y-%m-%d")))
+    assert ingest.run_cycle() is True
+
+    status = json.loads((live_dir / "status.json").read_text())
+    assert status["rain_source"] == "city_nowcast" and status["stations_used"] == 0
+    assert "none within" in status["station_fallback_reason"]
+    # T+0 and T+1h fall inside the ~2 h validity window, T+2h/T+3h after it.
+    assert status["ward_rain_mm_hr"][:2] == [10.0, 10.0]
+    assert status["ward_rain_mm_hr"][3] == 0.0
+
+    lookup = json.loads((live_dir / "risk_lookup_koramangala.json").read_text())
+    first = next(iter(lookup["timesteps"].values()))
+    assert first[0]["rain_rate_mm_hr"] == 10.0 and first[0]["is_forecast"] is True
+    gauges = json.loads((live_dir / "gauges_koramangala.json").read_text())
+    assert gauges["frames"][0]["gauges"] == []   # far-away stations are not drawn
+
+
+def test_city_nowcast_no_weather_means_dry(live_dir, monkeypatch):
+    now = datetime.now(timezone.utc)
+    use_payloads(monkeypatch, far_aws_payload(now),
+                 nowcast_payload([1], "1600", "1900", "2026-10-29"))   # real response from 29 Oct
+    assert ingest.run_cycle() is True
+    status = json.loads((live_dir / "status.json").read_text())
+    assert status["ward_rain_mm_hr"] == [0.0, 0.0, 0.0, 0.0]
+
+
+def test_nowcast_window_crossing_midnight():
+    issued, upto = ingest.nowcast_window({"date": "2026-10-29", "time_of_issue": "2200", "valid_upto": "0100"})
+    assert upto - issued == timedelta(hours=3)
+
+
+def test_band_rates():
+    assert ingest.nowcast_rate({"codes": [2]}) == 2.5
+    assert ingest.nowcast_rate({"codes": [2, 12]}) == 20.0
+    assert ingest.nowcast_rate({"codes": [6, 11]}) == 0.0      # lightning only, no rain band
+    assert ingest.nowcast_rate(None) == 0.0
+
+
+def test_no_stations_and_no_nowcast_fails_and_keeps_old_data(live_dir, monkeypatch):
+    def down(endpoint, params=None):
+        raise imd.IMDError("HTTP 503")
+    monkeypatch.setattr(imd, "fetch_raw", down)
+    assert ingest.run_cycle() is False
+    assert "no IMD city nowcast" in json.loads((live_dir / "status.json").read_text())["last_error"]

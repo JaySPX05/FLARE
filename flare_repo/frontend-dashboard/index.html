@@ -1273,19 +1273,31 @@ function renderSourceStatus(){
   brand.classList.toggle('stale', META.source === 'live' && META.stale);
 
   if (META.source === 'live') {
+    const cityMode = live.rain_source === 'city_nowcast';
     const obs = live.newest_observation;
+    const fresh = live.freshness_time || obs;
     if (META.stale) {
       const age = live.observation_age_minutes;
-      tag.textContent = 'IMD feed stale · last obs ' + fmtISTClock(obs) +
+      tag.textContent = 'IMD feed stale · last update ' + fmtISTClock(fresh) +
         (age != null ? ' (' + Math.round(age / 60) + 'h ago)' : '');
+    } else if (cityMode) {
+      tag.textContent = 'Live · IMD city nowcast · ' + fmtISTClock(fresh);
     } else {
       tag.textContent = 'Live · IMD · obs ' + fmtISTClock(obs);
     }
     const method = {pysteps: 'PySteps optical-flow nowcast', persistence: 'persistence (too few stations/frames for PySteps)',
                     dry: 'no rain in recent frames'}[live.nowcast_method] || live.nowcast_method || '—';
-    info.innerHTML =
-      'Live rainfall from <b>' + (live.stations_used ?? '?') + '</b> IMD automatic weather stations near Koramangala, ' +
-      'newest reading ' + fmtISTClock(obs) + '. Forecast: ' + method + '.' +
+    const body = cityMode
+      ? 'No IMD rain station near Koramangala is reporting, so rainfall comes from <b>IMD\'s nowcast for ' +
+        (live.nowcast_station || 'Bengaluru City') + '</b>' +
+        (live.nowcast_issued ? ' (issued ' + fmtISTClock(live.nowcast_issued) +
+          (live.nowcast_valid_until ? ', valid till ' + fmtISTClock(live.nowcast_valid_until) : '') + ')' : '') +
+        ': ' + ((live.nowcast_categories || ['No weather']).join(', ')) + '. ' +
+        'This is a city-wide rain band turned into a typical rate (light 2.5, moderate 10, heavy 20 mm/h), ' +
+        'not a street-level measurement.'
+      : 'Live rainfall from <b>' + (live.stations_used ?? '?') + '</b> IMD automatic weather stations near Koramangala, ' +
+        'newest reading ' + fmtISTClock(obs) + '. Forecast: ' + method + '.';
+    info.innerHTML = body +
       (live.last_error ? '<br><span style="color:var(--ember)">Last update failed: ' + live.last_error + '</span>' : '') +
       '<br><br>' + (META.attribution || 'Rainfall data source: India Meteorological Department (IMD).');
   } else {
@@ -1608,7 +1620,10 @@ async function initDashboard() {
     const prox = seg.drain_proximity_m!=null ? seg.drain_proximity_m.toFixed(0)+' m' : '—';
     const rain = seg.rain_rate_mm_hr!=null ? seg.rain_rate_mm_hr.toFixed(1)+' mm/h'
       : seg.mean_rainfall_mm!=null ? seg.mean_rainfall_mm.toFixed(1)+' mm' : '—';
-    const rainLabel = seg.rain_rate_mm_hr!=null ? (seg.is_forecast ? 'Rain (nowcast)' : 'Rain (IMD obs.)') : 'Rainfall (15 min)';
+    const cityMode = META && META.live && META.live.rain_source === 'city_nowcast';
+    const rainLabel = seg.rain_rate_mm_hr!=null
+      ? (cityMode ? 'Rain (IMD city band)' : seg.is_forecast ? 'Rain (nowcast)' : 'Rain (IMD obs.)')
+      : 'Rainfall (15 min)';
     return '<div class="popTitle">Segment '+seg.segment_id.replace('seg_0','#')+'</div>'+
       '<div class="popRow"><span>Risk score</span><b>'+seg.risk_score.toFixed(2)+'</b></div>'+
       '<div class="popRow"><span>Indicative depth</span><b>'+(seg.predicted_depth_cm||0).toFixed(1)+' cm</b></div>'+

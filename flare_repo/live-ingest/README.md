@@ -77,6 +77,24 @@ writes to a shared volume the two APIs read from.
 difference between two reports, so live data appears after IMD's *second* report,
 typically within an hour. Until then the dashboard keeps showing the demo storm.
 
+## When no station is close enough: IMD's city nowcast
+
+As of 29 Oct 2026 the probe found that IMD's `aws_data` feed serves only 16 of
+Karnataka's 91 mapped stations. The nearest reporting one is ~47 km from Koramangala.
+The BANGALORE AWS (7.6 km) returns "No Data Available", and the four Bengaluru rain
+gauges (ARG) return "Invalid ID". Rain 47 km away says almost nothing about a
+Koramangala street, so the ingest does **not** widen its radius to reach them.
+
+Instead, when no station within `STATION_RADIUS_KM` has usable readings, each cycle
+falls back to **IMD's station-wise nowcast for "Bengaluru City"**. Its rain category is
+turned into a representative rate for the band (light 2.5, moderate 10, heavy 20 mm/h;
+thunderstorm categories map to the matching band). Steps inside the warning's validity
+window get that rate; steps after it get 0. The dashboard labels this mode
+"Live · IMD city nowcast" and says plainly that it's a city-wide band, not a measurement.
+
+As soon as a nearby station (e.g. BANGALORE) reports again, the ingest switches back to
+station readings automatically. No configuration change is needed.
+
 ## Choosing live or demo
 
 | How | Effect |

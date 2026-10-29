@@ -351,6 +351,7 @@ def parse_station_nowcast(records, station_name=None):
         "valid_upto": get_ci(pick, "Vupto"),
         "color_code": color_code,
         "color": NOWCAST_COLORS.get(color_code, "green"),
+        "codes": sorted(set(codes)),
         "categories": [NOWCAST_CATEGORIES[c] for c in sorted(set(codes))] or ["No weather"],
         "message": get_ci(pick, "message"),
     }

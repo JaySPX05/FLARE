@@ -46,7 +46,7 @@ IMD_TIMEOUT_S = float(_env("IMD_TIMEOUT_S", "20"))
 IMD_STATE_ID = _env("IMD_STATE_ID", "13")
 # Station name to use for the station-wise nowcast. IMD publishes no station
 # list endpoint; probe_imd.py tries common spellings and tells you which works.
-IMD_NOWCAST_STATION = _env("IMD_NOWCAST_STATION", "Bengaluru")
+IMD_NOWCAST_STATION = _env("IMD_NOWCAST_STATION", "Bengaluru City")
 
 # Name of the rainfall field in aws_data. Leave blank to auto-detect from a
 # list of likely names (see imd_client.RAIN_FIELD_CANDIDATES).

@@ -1,5 +1,5 @@
 # Live IMD ingest (live-ingest/ingest.py). Build from the repo root:
-#   docker build -f infra/docker/ingest.Dockerfile -t flare-ingest .
+#   docker build --network host -f infra/docker/ingest.Dockerfile -t flare-ingest .
 #
 # IMD authorises by IP: this container's requests leave through the host's
 # internet connection, so it only gets data on a machine/network whose public
@@ -12,7 +12,10 @@ RUN apt-get update \
  && apt-get install -y --no-install-recommends build-essential \
  && rm -rf /var/lib/apt/lists/*
 RUN python -m venv /opt/venv
-ENV PATH=/opt/venv/bin:$PATH
+# Slow or flaky links to PyPI: wait longer and retry more before giving up.
+ENV PATH=/opt/venv/bin:$PATH \
+    PIP_DEFAULT_TIMEOUT=60 \
+    PIP_RETRIES=10
 COPY live-ingest/requirements.txt /build/requirements.txt
 RUN pip install --no-cache-dir -r /build/requirements.txt
 

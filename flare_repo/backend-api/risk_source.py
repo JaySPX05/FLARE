@@ -115,10 +115,12 @@ def meta(ward_id: str, requested: Optional[str] = None) -> Optional[dict]:
     if source == "live":
         status = load_status() or {}
         live = lookup.get("live", {})
-        newest = live.get("newest_observation")
+        # Station mode: age of the newest rain reading. City-nowcast mode: when the
+        # ingest last fetched a current IMD nowcast (there is no reading to age).
+        fresh = live.get("freshness_time") or live.get("newest_observation")
         age_min = None
-        if newest:
-            age_min = (datetime.now(timezone.utc) - datetime.fromisoformat(newest)).total_seconds() / 60
+        if fresh:
+            age_min = (datetime.now(timezone.utc) - datetime.fromisoformat(fresh)).total_seconds() / 60
         info.update({
             "stale": age_min is None or age_min > STALE_AFTER_MINUTES,
             "attribution": live.get("attribution"),
