@@ -5,6 +5,9 @@
 # Offline data pipeline (on demand, needs ./data populated):
 #     docker compose run --rm pipeline scripts/04_rainfall_multiplier.py
 #
+# On the Azure VM (pip downloads stall inside Docker's build network), build with
+#     bash infra/docker/build-host-network.sh      (builds all images, then starts them)
+#
 # Live IMD data: the `ingest` service polls IMD and writes into the shared
 # live-data volume; the api and routing services pick new files up on their
 # own. IMD access is IP-whitelisted, so run this on the approved network.
@@ -70,13 +73,10 @@ services:
     build:
       context: .
       dockerfile: infra/docker/ingest.Dockerfile
-      # Build on the host's network: on the Azure VM, pip's connections to PyPI
-      # stalled inside BuildKit's own build network even though the host and
-      # ordinary containers reached PyPI instantly.
-      network: host
-    # Runtime on the host's network too, for the same reason (it only talks to
-    # IMD and writes to the shared volume - it exposes no ports, so nothing
-    # changes for the other services).
+    # Runs on the host's network: on the Azure VM, connections from Docker's own
+    # build network to PyPI stalled. The ingest only talks to IMD and writes to the
+    # shared volume - it exposes no ports, so nothing changes for the other services.
+    # (On that VM, build images with infra/docker/build-host-network.sh.)
     network_mode: host
     env_file:
       - path: .env           # IMD settings from probe_imd.py (optional file)
