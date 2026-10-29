@@ -20,6 +20,7 @@ Run probe_imd.py once against the real API to confirm every assumption.
 import json
 import math
 import re
+import time
 from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
 
@@ -67,13 +68,68 @@ class IMDError(RuntimeError):
     """Raised when IMD can't be reached or returns something unusable."""
 
 
+# ---------------------------------------------------------------- auth
+
+# Cached JWT for this process. IMD tokens expire (expires_in, ~3600 s); we
+# renew a minute early, and once more if IMD rejects a request with 401.
+_token = {"value": None, "expires_at": 0.0}
+TOKEN_RENEW_MARGIN_S = 60
+
+
+def _require_credentials():
+    missing = [name for name, value in (("IMD_API_KEY", config.IMD_API_KEY),
+                                        ("IMD_EMAIL", config.IMD_EMAIL),
+                                        ("IMD_PASSWORD", config.IMD_PASSWORD)) if not value]
+    if missing:
+        raise IMDError(f"Missing {', '.join(missing)} in .env - IMD needs an API key "
+                       "plus your portal email/password (for the JWT token).")
+
+
+def get_token(force=False):
+    """A valid JWT access_token, fetched from IMD's token endpoint when needed."""
+    now = time.time()
+    if not force and _token["value"] and now < _token["expires_at"] - TOKEN_RENEW_MARGIN_S:
+        return _token["value"]
+    _require_credentials()
+    try:
+        resp = requests.post(
+            config.IMD_TOKEN_URL,
+            json={"email": config.IMD_EMAIL, "password": config.IMD_PASSWORD},
+            headers={"Content-Type": "application/json", "Accept": "application/json"},
+            timeout=config.IMD_TIMEOUT_S,
+        )
+    except requests.RequestException as e:
+        raise IMDError(f"Could not reach IMD token endpoint: {e}") from e
+    if resp.status_code != 200:
+        # Never echo the request body - it contains the password.
+        raise IMDError(f"IMD token request failed (HTTP {resp.status_code}): {resp.text[:200]} "
+                       "- check IMD_EMAIL / IMD_PASSWORD in .env")
+    try:
+        payload = parse_lenient_json(resp.text)
+    except json.JSONDecodeError as e:
+        raise IMDError(f"IMD token endpoint returned invalid JSON: {resp.text[:200]}") from e
+    if isinstance(payload, dict) and isinstance(payload.get("data"), dict):
+        payload = {**payload["data"], **payload}
+    token = payload.get("access_token") if isinstance(payload, dict) else None
+    if not token:
+        raise IMDError(f"IMD token response has no access_token: {str(payload)[:200]}")
+    try:
+        ttl = float(payload.get("expires_in") or 3600)
+    except (TypeError, ValueError):
+        ttl = 3600.0
+    _token.update(value=token, expires_at=now + ttl)
+    return token
+
+
 # ---------------------------------------------------------------- transport
 
-def _headers():
-    headers = {"Accept": "application/json", "User-Agent": "FLARE/1.0 (REVA University SIH 2026)"}
-    if config.IMD_API_KEY:
-        headers[config.IMD_API_KEY_HEADER] = config.IMD_API_KEY
-    return headers
+def _headers(token):
+    return {
+        "Accept": "application/json",
+        "User-Agent": "FLARE/1.0 (REVA University SIH 2026)",
+        config.IMD_API_KEY_HEADER: config.IMD_API_KEY,
+        "Authorization": f"Bearer {token}",
+    }
 
 
 def parse_lenient_json(text):
@@ -87,17 +143,23 @@ def parse_lenient_json(text):
 
 
 def fetch_raw(endpoint, params=None):
-    """GET one endpoint; returns (parsed_json, raw_text). Raises IMDError."""
+    """GET one endpoint with X-API-KEY + JWT; returns (parsed_json, raw_text). Raises IMDError."""
     url = f"{config.IMD_BASE_URL}/{endpoint}"
-    try:
-        resp = requests.get(url, params=params, headers=_headers(), timeout=config.IMD_TIMEOUT_S)
-    except requests.RequestException as e:
-        raise IMDError(f"Could not reach {url}: {e}") from e
+    for attempt in (1, 2):
+        token = get_token(force=attempt == 2)
+        try:
+            resp = requests.get(url, params=params, headers=_headers(token), timeout=config.IMD_TIMEOUT_S)
+        except requests.RequestException as e:
+            raise IMDError(f"Could not reach {url}: {e}") from e
+        if resp.status_code == 401 and attempt == 1:
+            continue  # token may have just expired - get a fresh one and retry once
+        break
 
     if resp.status_code in (401, 403):
         raise IMDError(
-            f"{url} returned HTTP {resp.status_code}. IMD access is IP-whitelisted: "
-            "this machine's public IP is probably not the one IMD approved."
+            f"{url} returned HTTP {resp.status_code}: {resp.text[:200]} - check that the API key "
+            "is Active in the IMD portal, that this server's public IP matches the one registered "
+            "with the key, and that the key and email belong to the same IMD account."
         )
     if resp.status_code != 200:
         raise IMDError(f"{url} returned HTTP {resp.status_code}: {resp.text[:200]}")

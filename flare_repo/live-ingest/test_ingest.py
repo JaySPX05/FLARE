@@ -206,3 +206,71 @@ def test_imd_outage_keeps_last_good_data(live_dir, monkeypatch):
     assert (live_dir / "risk_lookup_koramangala.json").read_text() == before
     status = json.loads((live_dir / "status.json").read_text())
     assert status["ok"] is False and "403" in status["last_error"] and status["last_success"]
+
+
+# ---------------------------------------------------------------- auth (X-API-KEY + JWT)
+
+class FakeResp:
+    def __init__(self, status, payload):
+        self.status_code = status
+        self.text = payload if isinstance(payload, str) else json.dumps(payload)
+
+
+@pytest.fixture
+def creds(monkeypatch):
+    monkeypatch.setattr(config, "IMD_API_KEY", "test-key")
+    monkeypatch.setattr(config, "IMD_EMAIL", "team@reva.edu.in")
+    monkeypatch.setattr(config, "IMD_PASSWORD", "secret")
+    monkeypatch.setattr(imd, "_token", {"value": None, "expires_at": 0.0})
+
+
+def test_requests_carry_api_key_and_bearer_token(creds, monkeypatch):
+    posts, gets = [], []
+
+    def post(url, json=None, headers=None, timeout=None):
+        posts.append((url, json))
+        return FakeResp(200, {"access_token": "jwt-1", "token_type": "Bearer", "expires_in": 3600})
+
+    def get(url, params=None, headers=None, timeout=None):
+        gets.append(headers)
+        return FakeResp(200, '[{"ID": "KA01",}]')
+
+    monkeypatch.setattr(imd.requests, "post", post)
+    monkeypatch.setattr(imd.requests, "get", get)
+    imd.fetch_raw("aws_data", {"sid": "13"})
+    imd.fetch_raw("aws_data_mapping")
+
+    assert posts == [(config.IMD_TOKEN_URL, {"email": "team@reva.edu.in", "password": "secret"})]  # token reused
+    assert gets[0]["X-API-KEY"] == "test-key"
+    assert gets[0]["Authorization"] == "Bearer jwt-1"
+
+
+def test_expired_token_is_renewed_once_on_401(creds, monkeypatch):
+    tokens = iter(["old", "new"])
+    monkeypatch.setattr(imd.requests, "post",
+                        lambda *a, **k: FakeResp(200, {"access_token": next(tokens), "expires_in": 3600}))
+    seen = []
+
+    def get(url, params=None, headers=None, timeout=None):
+        seen.append(headers["Authorization"])
+        return FakeResp(401, "token expired") if headers["Authorization"] == "Bearer old" else FakeResp(200, "[]")
+
+    monkeypatch.setattr(imd.requests, "get", get)
+    assert imd.fetch_raw("aws_data")[0] == []
+    assert seen == ["Bearer old", "Bearer new"]
+
+
+def test_missing_credentials_fail_clearly(monkeypatch):
+    monkeypatch.setattr(config, "IMD_API_KEY", "k")
+    monkeypatch.setattr(config, "IMD_EMAIL", "")
+    monkeypatch.setattr(config, "IMD_PASSWORD", "")
+    monkeypatch.setattr(imd, "_token", {"value": None, "expires_at": 0.0})
+    with pytest.raises(imd.IMDError, match="IMD_EMAIL, IMD_PASSWORD"):
+        imd.get_token()
+
+
+def test_bad_login_does_not_leak_password(creds, monkeypatch):
+    monkeypatch.setattr(imd.requests, "post", lambda *a, **k: FakeResp(401, '{"error":"invalid credentials"}'))
+    with pytest.raises(imd.IMDError) as e:
+        imd.get_token()
+    assert "secret" not in str(e.value) and "401" in str(e.value)

@@ -5,7 +5,7 @@ probe_imd.py - run this FIRST, on the machine whose IP IMD whitelisted.
     pip install -r requirements.txt
     python probe_imd.py
 
-It calls each approved IMD API once, saves the raw responses to
+It gets a JWT token with your portal email/password, calls each approved IMD API once, saves the raw responses to
 data/live/raw/probe_*.json, and prints what it found:
   - whether access works from this machine (and its public IP),
   - which field holds rainfall, and sample values,
@@ -17,6 +17,7 @@ followed by the .env lines to use. Nothing here changes the running app.
 
 import json
 import sys
+import time
 from collections import Counter
 from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
@@ -55,6 +56,18 @@ def main():
 
     suggestions = {}
     ok = True
+
+    heading("0b. Credentials + JWT token")
+    print(f"API key set: {'yes' if config.IMD_API_KEY else 'NO'}  (sent as header {config.IMD_API_KEY_HEADER})")
+    print(f"Email set:   {'yes' if config.IMD_EMAIL else 'NO'}")
+    print(f"Password set: {'yes' if config.IMD_PASSWORD else 'NO'}")
+    try:
+        token = imd.get_token()
+        print(f"OK - got a JWT ({len(token)} chars, valid ~{int(imd._token['expires_at'] - time.time())} s)")
+    except imd.IMDError as e:
+        print("FAILED:", e)
+        print("Nothing else can work without a token - fix .env and re-run.")
+        return 1
 
     # ---------------------------------------------------------- mapping
     heading("1. aws_data_mapping")
@@ -140,7 +153,7 @@ def main():
             records, raw = imd.fetch_station_nowcast(name)
         except imd.IMDError as e:
             print(f"  id={name!r}: FAILED ({e})")
-            if "whitelisted" in str(e):
+            if "HTTP 401" in str(e) or "HTTP 403" in str(e):
                 break
             continue
         summary = imd.parse_station_nowcast(records, name)

@@ -28,11 +28,18 @@ def _env(name, default):
 REPO_ROOT = Path(__file__).resolve().parent.parent
 
 # ---------------------------------------------------------------- IMD access
+# Per the IMD API Portal User Guide, every request needs TWO headers:
+#   X-API-KEY: <key from the portal's API Keys page>   - bound to this server's static IP
+#   Authorization: Bearer <JWT>                         - from POST /api/oauth/token.php
+#                                                         with the portal email + password;
+#                                                         expires (~1 h), renewed automatically
+# Keep all three in .env (gitignored, chmod 600) - never in code or the repo.
 IMD_BASE_URL = _env("IMD_BASE_URL", "https://api.imd.gov.in/api/v1").rstrip("/")
-# Most IMD API access is IP-whitelisted with no key. If your approval email
-# DID give you a key/token, put it here plus the header name it should go in.
+IMD_TOKEN_URL = _env("IMD_TOKEN_URL", "https://api.imd.gov.in/api/oauth/token.php")
 IMD_API_KEY = _env("IMD_API_KEY", "")
-IMD_API_KEY_HEADER = _env("IMD_API_KEY_HEADER", "Authorization")
+IMD_API_KEY_HEADER = _env("IMD_API_KEY_HEADER", "X-API-KEY")
+IMD_EMAIL = _env("IMD_EMAIL", "")
+IMD_PASSWORD = _env("IMD_PASSWORD", "")
 IMD_TIMEOUT_S = float(_env("IMD_TIMEOUT_S", "20"))
 
 # Karnataka is state id 13 in IMD's state list (api_reference.html).

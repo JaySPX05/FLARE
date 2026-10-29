@@ -24,8 +24,19 @@ downstream had to change shape.
 
 ## Step 1 — check access (do this first)
 
-IMD authorises **by IP address**: requests only work from the network whose public IP
-was whitelisted. Run the probe on that machine:
+Every IMD request needs two headers (IMD API Portal User Guide, section 7):
+`X-API-KEY` (generated on the portal's API Keys page and bound to one **static public
+IP**) and `Authorization: Bearer <JWT>` (from `POST /api/oauth/token.php` with your portal
+email and password; it expires after about an hour and the client renews it automatically).
+Put all three in `flare_repo/.env` on the server whose IP the key is bound to:
+
+```
+IMD_API_KEY=...
+IMD_EMAIL=...
+IMD_PASSWORD='...'      # single quotes, so characters like $ or # are kept as-is
+```
+
+Then run the probe on that machine:
 
 ```bash
 cd flare_repo/live-ingest
