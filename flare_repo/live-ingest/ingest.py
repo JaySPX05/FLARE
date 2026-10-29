@@ -372,8 +372,16 @@ def run_cycle():
             nc_records, _ = imd.fetch_station_nowcast()
             imd_nowcast = imd.parse_station_nowcast(nc_records)
         except imd.IMDError as e:
-            print(f"  stationnowcast unavailable ({e})")
+            # IMD sometimes answers "No Data Available" between nowcast issues.
+            # Keep using the last nowcast we got while it's still within its validity window.
             imd_nowcast = None
+            previous = status.get("imd_nowcast")
+            _, prev_until = nowcast_window(previous) if previous else (None, None)
+            if prev_until and prev_until > started:
+                imd_nowcast = {**previous, "reused": True}
+                print(f"  stationnowcast unavailable ({e}); reusing the one valid till {iso_ist(prev_until)}")
+            else:
+                print(f"  stationnowcast unavailable ({e})")
 
         # Preferred: real rain readings from IMD stations near Koramangala.
         station_error = None
@@ -390,6 +398,7 @@ def run_cycle():
             gauges = []
             meta = {
                 "rain_source": "city_nowcast",
+                "nowcast_reused": bool(imd_nowcast.get("reused")),
                 "newest_observation": None,
                 "freshness_time": iso_ist(started),   # we fetched a current nowcast just now
                 "nowcast_issued": iso_ist(issued) if issued else None,
@@ -417,7 +426,7 @@ def run_cycle():
         # Drop keys from the other mode so status.json never mixes the two.
         for key in ("newest_observation", "stations_in_state_feed", "rain_field", "rain_mode",
                     "frames_used", "nowcast_issued", "nowcast_valid_until", "nowcast_station",
-                    "nowcast_categories", "station_fallback_reason"):
+                    "nowcast_categories", "station_fallback_reason", "nowcast_reused"):
             status.pop(key, None)
         status.update({"ok": True, "last_success": started.isoformat(), "last_error": None,
                        "imd_nowcast": imd_nowcast, **meta})

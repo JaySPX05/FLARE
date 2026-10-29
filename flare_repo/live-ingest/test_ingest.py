@@ -357,3 +357,40 @@ def test_no_stations_and_no_nowcast_fails_and_keeps_old_data(live_dir, monkeypat
     monkeypatch.setattr(imd, "fetch_raw", down)
     assert ingest.run_cycle() is False
     assert "no IMD city nowcast" in json.loads((live_dir / "status.json").read_text())["last_error"]
+
+
+def test_last_valid_nowcast_is_reused_when_imd_has_none(live_dir, monkeypatch):
+    now = datetime.now(timezone.utc)
+    ist_now = now.astimezone(ingest.IST)
+    good = nowcast_payload([0, 0, 0, 0, 0, 0, 7], (ist_now - timedelta(minutes=30)).strftime("%H%M"),
+                                       (ist_now + timedelta(minutes=150)).strftime("%H%M"), ist_now.strftime("%Y-%m-%d"))
+    use_payloads(monkeypatch, far_aws_payload(now), good)
+    assert ingest.run_cycle() is True
+
+    # Next cycle IMD says "No Data Available" for the nowcast.
+    def fetch_raw(endpoint, params=None):
+        if endpoint == "stationnowcast":
+            raise imd.IMDError("HTTP 400: Invalid ID or No Data Avaiable")
+        text = far_aws_payload(now)
+        return imd.parse_lenient_json(text), text
+    monkeypatch.setattr(imd, "fetch_raw", fetch_raw)
+    assert ingest.run_cycle() is True
+    status = json.loads((live_dir / "status.json").read_text())
+    assert status["nowcast_reused"] is True and status["ward_rain_mm_hr"][0] == 10.0
+
+
+def test_expired_nowcast_is_not_reused(live_dir, monkeypatch):
+    now = datetime.now(timezone.utc)
+    ist_now = now.astimezone(ingest.IST)
+    stale = nowcast_payload([0, 0, 0, 0, 0, 0, 7], (ist_now - timedelta(minutes=200)).strftime("%H%M"),
+                            (ist_now - timedelta(minutes=20)).strftime("%H%M"), ist_now.strftime("%Y-%m-%d"))
+    use_payloads(monkeypatch, far_aws_payload(now), stale)
+    ingest.run_cycle()
+
+    def fetch_raw(endpoint, params=None):
+        if endpoint == "stationnowcast":
+            raise imd.IMDError("HTTP 400: Invalid ID or No Data Avaiable")
+        text = far_aws_payload(now)
+        return imd.parse_lenient_json(text), text
+    monkeypatch.setattr(imd, "fetch_raw", fetch_raw)
+    assert ingest.run_cycle() is False
