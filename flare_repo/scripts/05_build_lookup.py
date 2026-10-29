@@ -391,6 +391,21 @@ payload = {
 OUTPUT_FILE.parent.mkdir(parents=True, exist_ok=True)
 OUTPUT_FILE.write_text(json.dumps(payload, indent=2), encoding="utf-8")
 
+# The weather-independent half of the score, at full precision. The live IMD
+# ingest (live-ingest/ingest.py) multiplies these by live rainfall every cycle
+# instead of re-running this whole GIS script.
+BASE_FILE = OUTPUT_FILE.parent / f"segments_base_{WARD_ID}.json"
+BASE_FILE.write_text(json.dumps({
+    "ward_id": WARD_ID,
+    "formula": payload["formula"],
+    "segments": [
+        {k: s[k] for k in ("segment_id", "geometry", "base_risk", "static_susc",
+                           "drain_proximity_norm", "drain_proximity_m")}
+        for s in segments
+    ],
+}), encoding="utf-8")
+print(f"Saved base risk for live ingest: {BASE_FILE}")
+
 
 # ---- Summary ----
 print("\n" + "=" * 60)

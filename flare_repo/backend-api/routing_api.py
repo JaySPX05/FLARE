@@ -15,7 +15,6 @@ Test:
     http://127.0.0.1:8001/docs
 """
 
-import json
 import os
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -25,6 +24,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from shapely import STRtree
 from shapely.geometry import LineString
 
+import risk_source
+from data_loader import _nearest_timestep
 from routing import (
     build_edge_index,
     compute_route,
@@ -68,12 +69,7 @@ PLACE_NAME = "Koramangala, Bengaluru, India"
 
 BASE_DIR = Path(__file__).resolve().parent
 
-RISK_LOOKUP_PATH = (
-    BASE_DIR.parent
-    / "data"
-    / "processed"
-    / "risk_lookup_koramangala.json"
-)
+WARD_ID = "koramangala"
 
 # Saved copy of the road graph (create it with scripts/08_cache_osm_graph.py).
 # When the file exists the service starts in seconds with no internet; when it
@@ -124,56 +120,20 @@ def get_graph():
 # Real flood-risk data
 # ---------------------------------------------------------------------------
 
-def load_risk_data():
+def load_risk_data(source=None):
     """
-    Load Pair 1's real flood-risk lookup JSON.
-
-    Expected structure:
-
-    {
-      "ward_id": "koramangala",
-      "generated_at": "...",
-      "timesteps": {
-        "2026-09-07T15:00:00": [
-          {
-            "segment_id": "seg_0001",
-            "geometry": [[longitude, latitude], ...],
-            "risk_score": 0.39,
-            "predicted_depth_cm": 11.7,
-            "confidence": 0.6
-          }
-        ]
-      }
-    }
+    The flood-risk lookup JSON (same shape as scripts/05 output) from the live
+    IMD feed or the demo storm - risk_source.py decides which (FLARE_DATA_MODE,
+    or ?source= on the request) and re-reads it whenever the file changes, so
+    routes follow new IMD data without a restart.
     """
-    if _state["risk_data"] is not None:
-        return _state["risk_data"]
-
-    if not RISK_LOOKUP_PATH.exists():
+    risk_data, used = risk_source.load_lookup(WARD_ID, source)
+    if risk_data is None:
         raise FileNotFoundError(
-            "Could not find risk lookup data at: "
-            f"{RISK_LOOKUP_PATH}"
+            f"No {used} risk lookup for {WARD_ID}. Expected "
+            f"data/{'live' if used == 'live' else 'processed'}/risk_lookup_{WARD_ID}.json"
         )
-
-    with RISK_LOOKUP_PATH.open(
-        "r",
-        encoding="utf-8",
-    ) as file:
-        _state["risk_data"] = json.load(file)
-
-    timestep_count = len(
-        _state["risk_data"].get(
-            "timesteps",
-            {},
-        )
-    )
-
-    print(
-        f"Loaded flood-risk lookup data with "
-        f"{timestep_count} timesteps."
-    )
-
-    return _state["risk_data"]
+    return risk_data
 
 
 def segment_midpoint(geometry):
@@ -204,7 +164,7 @@ def segment_midpoint(geometry):
     )
 
 
-def get_segments_for_timestep(timestep=None):
+def get_segments_for_timestep(timestep=None, source=None):
     """
     Get risk segments for the selected timestamp.
 
@@ -214,7 +174,7 @@ def get_segments_for_timestep(timestep=None):
     Returns:
         (segments, timestep_used)
     """
-    risk_data = load_risk_data()
+    risk_data = load_risk_data(source)
 
     timesteps = risk_data.get(
         "timesteps",
@@ -229,6 +189,13 @@ def get_segments_for_timestep(timestep=None):
             timesteps[timestep],
             timestep,
         )
+
+    if timestep:
+        try:
+            nearest = _nearest_timestep(list(timesteps), timestep)
+            return timesteps[nearest], nearest
+        except ValueError:
+            pass  # unparseable timestamp: fall through to the first step
 
     first_timestamp = next(iter(timesteps))
 
@@ -327,10 +294,10 @@ def get_edge_segment_map(graph, segments):
     return _state["edge_segments"]
 
 
-def apply_risk_to_graph(graph, timestep=None):
+def apply_risk_to_graph(graph, timestep=None, source=None):
 
     segments, timestep_used = get_segments_for_timestep(
-        timestep
+        timestep, source
     )
 
     for _, _, _, edge_data in graph.edges(
@@ -395,6 +362,7 @@ def flooded_segments_on_route(
     edge_ids,
     timestep,
     risk_threshold=0.55,
+    source=None,
 ):
     """
     IDs of forecast segments at/above the risk threshold that a route
@@ -404,7 +372,7 @@ def flooded_segments_on_route(
     edge_segments = _state["edge_segments"] or {}
 
     segments, _ = get_segments_for_timestep(
-        timestep
+        timestep, source
     )
 
     risk_by_segment = {
@@ -427,12 +395,17 @@ def flooded_segments_on_route(
 @app.get("/")
 def root():
     """
-    Health check plus real-data status.
+    Health check plus real-data status. Stays healthy even before the live
+    ingest has written its first file, so the container can start.
     """
-    risk_data = load_risk_data()
+    try:
+        risk_data = load_risk_data()
+    except FileNotFoundError as error:
+        return {"status": "ok", "using_real_risk_data": False, "detail": str(error)}
 
     return {
         "status": "ok",
+        "risk_source": risk_source.resolve_source(WARD_ID),
         "ward_id": risk_data.get(
             "ward_id",
             "koramangala",
@@ -456,6 +429,7 @@ def route(
     end_lat: float,
     end_lon: float,
     timestep: str = None,
+    source: str = None,
 ):
     """
     Return two route options as GeoJSON for Leaflet:
@@ -472,6 +446,7 @@ def route(
     graph, timestep_used = apply_risk_to_graph(
         graph,
         timestep=timestep,
+        source=source,
     )
 
     shortest_result = compute_route(
@@ -530,7 +505,7 @@ def route(
     if safe_feature:
         features.append(safe_feature)
 
-    risk_data = load_risk_data()
+    risk_data = load_risk_data(source)
 
     return {
         "type": "FeatureCollection",
@@ -541,6 +516,7 @@ def route(
                 "koramangala",
             ),
             "timestep_used": timestep_used,
+            "risk_source": risk_source.resolve_source(WARD_ID, source),
             "using_real_risk_data": bool(
                 risk_data.get("timesteps")
             ),
@@ -551,10 +527,12 @@ def route(
                 flooded_segments_on_route(
                     shortest_result["edge_ids"],
                     timestep_used,
+                    source=source,
                 )
                 - flooded_segments_on_route(
                     safe_result["edge_ids"],
                     timestep_used,
+                    source=source,
                 )
             ),
             "safe_route_available": bool(

@@ -25,6 +25,13 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 import data_loader
+import risk_source
+
+SOURCE_QUERY = Query(
+    None,
+    description="'live' (IMD feed), 'demo' (recorded storm) or 'auto'. "
+                "Defaults to the FLARE_DATA_MODE environment variable.",
+)
 
 app = FastAPI(title="FLARE Risk API", version="1.0.0")
 
@@ -52,6 +59,10 @@ class RiskSegment(BaseModel):
     confidence: Optional[float] = None
     drain_proximity_m: Optional[float] = None
     mean_rainfall_mm: Optional[float] = None
+    # Live (IMD) data only - additive, so the frozen contract still holds.
+    rain_rate_mm_hr: Optional[float] = None
+    horizon_label: Optional[str] = None
+    is_forecast: Optional[bool] = None
 
 
 class RiskResponse(BaseModel):
@@ -59,6 +70,7 @@ class RiskResponse(BaseModel):
     timestamp: str
     forecast_window_minutes: int
     segments: list[RiskSegment]
+    source: Optional[str] = None   # "live" (IMD) or "demo" (recorded storm)
 
 
 class FloodPointsResponse(BaseModel):
@@ -71,12 +83,46 @@ def health_check():
     return {"status": "ok", "service": "flare-backend"}
 
 
+@app.get("/api/v1/meta")
+def get_meta(
+    ward_id: str = Query(..., description="e.g. 'koramangala'"),
+    source: Optional[str] = SOURCE_QUERY,
+):
+    """
+    What the dashboard needs before loading anything else: which source is
+    being served (live IMD or demo), the available timesteps and their
+    horizon labels, and - for live data - freshness, the IMD attribution line
+    and IMD's own station nowcast warning.
+    """
+    info = risk_source.meta(ward_id, source)
+    if info is None:
+        raise HTTPException(
+            status_code=404,
+            detail=f"No {risk_source.resolve_source(ward_id, source)} risk data for "
+                   f"ward_id='{ward_id}'. For live data, run live-ingest/ingest.py first.",
+        )
+    return info
+
+
+@app.get("/api/v1/gauges")
+def get_gauges(
+    ward_id: str = Query(..., description="e.g. 'koramangala'"),
+    source: Optional[str] = SOURCE_QUERY,
+):
+    """Rain gauge readings: IMD AWS stations near the ward (live) or the demo gauges."""
+    data, used = risk_source.load_gauges(ward_id, source)
+    if data is None:
+        return {"ward_id": ward_id, "source": used, "frames": []}
+    return {**data, "source": used}
+
+
 @app.get("/api/v1/risk", response_model=RiskResponse)
 def get_risk(
     ward_id: str = Query(..., description="e.g. 'koramangala'"),
     timestamp: Optional[str] = Query(
         None, description="ISO8601. Defaults to now if omitted."
     ),
+    source: Optional[str] = SOURCE_QUERY,
 ):
     """
     Returns risk scores for every street segment in a ward at a given timestep,
@@ -84,7 +130,7 @@ def get_risk(
     """
     ts = timestamp or datetime.now(timezone.utc).isoformat()
 
-    segments = data_loader.get_risk_segments(ward_id, ts)
+    segments = data_loader.get_risk_segments(ward_id, ts, source)
     if segments is None:
         raise HTTPException(
             status_code=404,
@@ -97,6 +143,7 @@ def get_risk(
         timestamp=ts,
         forecast_window_minutes=180,
         segments=segments,
+        source=risk_source.resolve_source(ward_id, source),
     )
 
 

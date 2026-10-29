@@ -12,7 +12,7 @@ WORKDIR /app/backend-api
 COPY backend-api/requirements-routing.txt .
 RUN pip install -r requirements-routing.txt
 
-COPY backend-api/routing.py backend-api/routing_api.py ./
+COPY backend-api/routing.py backend-api/routing_api.py backend-api/risk_source.py backend-api/data_loader.py ./
 # The risk JSON is required. The saved road graph (koramangala_drive.graphml, made by
 # scripts/08_cache_osm_graph.py) is optional: with it the service starts offline in
 # seconds; without it the service downloads the network from OpenStreetMap at start-up.

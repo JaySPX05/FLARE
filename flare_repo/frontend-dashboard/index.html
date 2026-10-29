@@ -768,6 +768,19 @@ svg.leaflet-image-layer.leaflet-interactive path {
   #brandMark .name{ font-family:var(--font-display); font-size:15px; color:var(--ink-hi); line-height:1.3; letter-spacing:0.01em; }
   #brandMark .tag{ font-size:9px; letter-spacing:0.08em; color:var(--ink-dim); text-transform:uppercase; }
   #brandMark .livepulse{ width:7px; height:7px; border-radius:50%; background:var(--ember); animation:emberPulse 2s infinite; margin-left:2px; }
+  #brandMark.demo .livepulse, #brandMark.stale .livepulse{ animation:none; background:var(--ink-dim); }
+  #brandMark.stale .tag{ color:var(--ember); }
+
+  /* IMD's own station nowcast warning, shown under the brand when not green */
+  #imdNowcast{
+    position:absolute; z-index:800; top:74px; right:18px; max-width:260px;
+    display:none; gap:8px; align-items:flex-start;
+    padding:8px 12px; background:var(--panel); border:1px solid var(--border); border-radius:4px;
+    font-size:10px; line-height:1.45; color:var(--ink-hi);
+  }
+  #imdNowcast.show{ display:flex; }
+  #imdNowcast .dot{ flex:none; width:8px; height:8px; border-radius:50%; margin-top:3px; }
+  #imdNowcast .sub{ color:var(--ink-dim); }
 
   /* ── Icon rail: each icon independently summons its own floating card ─── */
   #iconRail{
@@ -923,9 +936,10 @@ svg.leaflet-image-layer.leaflet-interactive path {
 
 <div id="brandMark">
 	<span class="glyph">⌁</span>
-	<div title="Flood Localization &amp; Alert Real-time Engine"><div class="name">FLARE</div><div class="tag">Koramangala · Live nowcast</div></div>
+	<div title="Flood Localization &amp; Alert Real-time Engine"><div class="name">FLARE</div><div class="tag" id="sourceTag">Koramangala · loading…</div></div>
 	<span class="livepulse"></span>
 </div>
+<div id="imdNowcast" role="status"><span class="dot" id="imdNowcastDot"></span><div><div id="imdNowcastText"></div><div class="sub" id="imdNowcastSub"></div></div></div>
 
 <div id="iconRail">
 	<button class="railIcon" data-card="card-summary" title="Status" aria-label="Status">
@@ -1026,6 +1040,8 @@ svg.leaflet-image-layer.leaflet-interactive path {
 			<li>Rainfall and drainage proximity can raise risk.</li>
 			<li>This is not actual flood depth.</li>
 		</ol>
+		<div class="label" style="margin-top:12px">Data source</div>
+		<div id="sourceInfo" style="font-size:11px;line-height:1.5;color:var(--ink-dim)">—</div>
 	</div>
 </div>
 
@@ -1166,10 +1182,17 @@ const BACKEND_URL = USE_LOCAL_BACKENDS ? 'http://127.0.0.1:8000' : '';
 const ROUTING_BACKEND_URL = USE_LOCAL_BACKENDS ? 'http://127.0.0.1:8001' : '/routing';
 const WARD_ID = 'koramangala';
 
-const REAL_TIMESTAMPS = [
-  "2026-09-07T17:45:00", "2026-09-07T18:45:00",
-  "2026-09-07T19:45:00", "2026-09-07T20:45:00",
-];
+// Which data the backend should serve: '' = its default (FLARE_DATA_MODE,
+// normally live IMD when available), or force one with ?source=live|demo
+// in the dashboard URL (handy for presenting the recorded storm on a dry day).
+const DATA_SOURCE = (new URLSearchParams(location.search).get('source') || '').toLowerCase();
+const SOURCE_PARAM = ['live', 'demo', 'auto'].includes(DATA_SOURCE) ? `&source=${DATA_SOURCE}` : '';
+const REFRESH_MS = 5 * 60 * 1000;   // re-check for new IMD data every 5 min
+
+// Filled from the backend (/api/v1/meta, /api/v1/gauges) - nothing hardcoded.
+let META = null;
+let REAL_TIMESTAMPS = [];
+let GAUGE_DATA = [];
 
 let DATA = null;
 let FLOOD_POINTS = [];
@@ -1184,9 +1207,31 @@ function setRouteStatus(text, cls) {
   el.className = 'routeStatus' + (cls ? ' ' + cls : '');
 }
 
+async function fetchMeta() {
+  const r = await fetch(`${BACKEND_URL}/api/v1/meta?ward_id=${WARD_ID}${SOURCE_PARAM}`);
+  if (!r.ok) throw new Error(`HTTP ${r.status} from /api/v1/meta`);
+  return r.json();
+}
+
+/* Gauges come back as {frames:[{timestamp, gauges:[{lat,lon,...}]}]}; keep the
+   [lat, lon, value, details] tuple shape the rendering code below expects. */
+async function fetchGauges() {
+  try {
+    const r = await fetch(`${BACKEND_URL}/api/v1/gauges?ward_id=${WARD_ID}${SOURCE_PARAM}`);
+    if (!r.ok) return [];
+    const data = await r.json();
+    return (data.frames || []).map(f => ({
+      timestamp: f.timestamp,
+      gauges: f.gauges.map(g => [g.lat, g.lon, g.rain_rate_mm_hr ?? g.rain_mm ?? null, g]),
+    }));
+  } catch (e) {
+    return [];
+  }
+}
+
 async function fetchAllRiskData() {
   const promises = REAL_TIMESTAMPS.map(ts =>
-    fetch(`${BACKEND_URL}/api/v1/risk?ward_id=${WARD_ID}&timestamp=${encodeURIComponent(ts)}`)
+    fetch(`${BACKEND_URL}/api/v1/risk?ward_id=${WARD_ID}&timestamp=${encodeURIComponent(ts)}${SOURCE_PARAM}`)
       .then(r => {
         if (!r.ok) throw new Error(`HTTP ${r.status} for timestamp ${ts}`);
         return r.json();
@@ -1211,6 +1256,60 @@ async function fetchFloodPoints() {
   }
 }
 
+function fmtISTClock(ts){
+  if (!ts) return '—';
+  return new Date(ts).toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit',
+    hour12:false,timeZone:'Asia/Kolkata'}) + ' IST';
+}
+
+/* Brand tag, IMD nowcast chip and info-card text, from /api/v1/meta. */
+function renderSourceStatus(){
+  if (!META) return;
+  const brand = document.getElementById('brandMark');
+  const tag = document.getElementById('sourceTag');
+  const info = document.getElementById('sourceInfo');
+  const live = META.live || {};
+  brand.classList.toggle('demo', META.source !== 'live');
+  brand.classList.toggle('stale', META.source === 'live' && META.stale);
+
+  if (META.source === 'live') {
+    const obs = live.newest_observation;
+    if (META.stale) {
+      const age = live.observation_age_minutes;
+      tag.textContent = 'IMD feed stale · last obs ' + fmtISTClock(obs) +
+        (age != null ? ' (' + Math.round(age / 60) + 'h ago)' : '');
+    } else {
+      tag.textContent = 'Live · IMD · obs ' + fmtISTClock(obs);
+    }
+    const method = {pysteps: 'PySteps optical-flow nowcast', persistence: 'persistence (too few stations/frames for PySteps)',
+                    dry: 'no rain in recent frames'}[live.nowcast_method] || live.nowcast_method || '—';
+    info.innerHTML =
+      'Live rainfall from <b>' + (live.stations_used ?? '?') + '</b> IMD automatic weather stations near Koramangala, ' +
+      'newest reading ' + fmtISTClock(obs) + '. Forecast: ' + method + '.' +
+      (live.last_error ? '<br><span style="color:var(--ember)">Last update failed: ' + live.last_error + '</span>' : '') +
+      '<br><br>' + (META.attribution || 'Rainfall data source: India Meteorological Department (IMD).');
+  } else {
+    tag.textContent = 'Demo · recorded storm, 7 Sep';
+    info.innerHTML = 'Showing the recorded storm of 7 Sep 2026 (10 gauges), replayed with a PySteps nowcast. ' +
+      'Live IMD data appears here automatically once the ingest service is running.';
+  }
+
+  const chip = document.getElementById('imdNowcast');
+  const nc = META.source === 'live' ? live.imd_nowcast : null;
+  if (nc && nc.color && nc.color !== 'green') {
+    const colors = {yellow: '#E7C24A', orange: '#E8913F', red: '#F06A5F'};
+    document.getElementById('imdNowcastDot').style.background = colors[nc.color] || '#E7C24A';
+    const fmtHHmm = v => v ? String(v).padStart(4, '0').replace(/(\d\d)(\d\d)/, '$1:$2') : '';
+    document.getElementById('imdNowcastText').textContent =
+      'IMD nowcast (' + (nc.station || 'Bengaluru') + '): ' + nc.categories.join(', ');
+    document.getElementById('imdNowcastSub').textContent =
+      (nc.valid_upto ? 'Valid till ' + fmtHHmm(nc.valid_upto) : '') + (nc.message ? ' · ' + nc.message : '');
+    chip.classList.add('show');
+  } else {
+    chip.classList.remove('show');
+  }
+}
+
 function showLoadingError(message) {
   document.getElementById('map').innerHTML = '';
   const errDiv = document.createElement('div');
@@ -1226,12 +1325,7 @@ function showLoadingError(message) {
 }
 </script>
 <script>
-const GAUGE_DATA = [
-	{timestamp:'2026-09-07T15:00:00', gauges:[[12.937491,77.620618,0.62],[12.949014,77.649097,0.16],[12.94464,77.644973,0],[12.941973,77.62637,0],[12.93312,77.625455,2.02],[12.93312,77.625502,1.17],[12.931162,77.629127,0.94],[12.947324,77.635743,0],[12.942022,77.632958,0],[12.944161,77.628737,0.26]]},
-	{timestamp:'2026-09-07T16:00:00', gauges:[[12.937491,77.620618,14.03],[12.949014,77.649097,0.7],[12.94464,77.644973,4.78],[12.941973,77.62637,24.18],[12.93312,77.625455,22.67],[12.93312,77.625502,22.91],[12.931162,77.629127,23.55],[12.947324,77.635743,11.92],[12.942022,77.632958,27.24],[12.944161,77.628737,22.68]]},
-	{timestamp:'2026-09-07T17:00:00', gauges:[[12.937491,77.620618,0.61],[12.949014,77.649097,12.97],[12.94464,77.644973,21],[12.941973,77.62637,3.22],[12.93312,77.625455,0.3],[12.93312,77.625502,0.81],[12.931162,77.629127,1.42],[12.947324,77.635743,15.61],[12.942022,77.632958,11.61],[12.944161,77.628737,6.16]]},
-	{timestamp:'2026-09-07T17:45:00', gauges:[[12.937491,77.620618,0],[12.949014,77.649097,1.44],[12.94464,77.644973,1.2],[12.941973,77.62637,0],[12.93312,77.625455,0],[12.93312,77.625502,0.04],[12.931162,77.629127,0],[12.947324,77.635743,0.57],[12.942022,77.632958,0],[12.944161,77.628737,0.81]]}
-];
+/* Rain gauge readings are loaded from /api/v1/gauges (see fetchGauges). */
 
 /* ── Risk colour bands (score 0–1) ─────────────────────────────────────── */
 const RISK_BANDS = [
@@ -1277,13 +1371,16 @@ const WARD_BOUNDARY = {type:'Polygon',coordinates:[[[77.629654,12.934411],[77.62
 async function initDashboard() {
   let steps;
   try {
-    steps = await fetchAllRiskData();
+    META = await fetchMeta();
+    REAL_TIMESTAMPS = META.timesteps;
+    [steps, GAUGE_DATA] = await Promise.all([fetchAllRiskData(), fetchGauges()]);
   } catch (e) {
     showLoadingError(e.message);
     return;
   }
   FLOOD_POINTS = await fetchFloodPoints();
   DATA = { steps };
+  renderSourceStatus();
 
   /* ── Map initialisation (real ward-boundary version) ─────────────────── */
   const map = L.map('map', {
@@ -1407,7 +1504,7 @@ async function initDashboard() {
     if (!routeStart || !routeEnd) return;
     setRouteStatus('Computing routes...');
     const currentTimestep = DATA.steps[currentStep].timestamp;
-    const url = `${ROUTING_BACKEND_URL}/route?start_lat=${routeStart.lat}&start_lon=${routeStart.lng}&end_lat=${routeEnd.lat}&end_lon=${routeEnd.lng}&timestep=${encodeURIComponent(currentTimestep)}`;
+    const url = `${ROUTING_BACKEND_URL}/route?start_lat=${routeStart.lat}&start_lon=${routeStart.lng}&end_lat=${routeEnd.lat}&end_lon=${routeEnd.lng}&timestep=${encodeURIComponent(currentTimestep)}${SOURCE_PARAM}`;
     try {
       const r = await fetch(url);
       if (!r.ok) throw new Error(`HTTP ${r.status}`);
@@ -1509,67 +1606,92 @@ async function initDashboard() {
   /* ── Popup builder ──────────────────────────────────────────────────── */
   function buildPopup(seg){
     const prox = seg.drain_proximity_m!=null ? seg.drain_proximity_m.toFixed(0)+' m' : '—';
-    const rain = seg.mean_rainfall_mm!=null ? seg.mean_rainfall_mm.toFixed(1)+' mm' : '—';
+    const rain = seg.rain_rate_mm_hr!=null ? seg.rain_rate_mm_hr.toFixed(1)+' mm/h'
+      : seg.mean_rainfall_mm!=null ? seg.mean_rainfall_mm.toFixed(1)+' mm' : '—';
+    const rainLabel = seg.rain_rate_mm_hr!=null ? (seg.is_forecast ? 'Rain (nowcast)' : 'Rain (IMD obs.)') : 'Rainfall (15 min)';
     return '<div class="popTitle">Segment '+seg.segment_id.replace('seg_0','#')+'</div>'+
       '<div class="popRow"><span>Risk score</span><b>'+seg.risk_score.toFixed(2)+'</b></div>'+
       '<div class="popRow"><span>Indicative depth</span><b>'+(seg.predicted_depth_cm||0).toFixed(1)+' cm</b></div>'+
       '<div class="popRow"><span>Nearest drain</span><b>'+prox+'</b></div>'+
-      '<div class="popRow"><span>Rainfall (15 min)</span><b>'+rain+'</b></div>'+
+      '<div class="popRow"><span>'+rainLabel+'</span><b>'+rain+'</b></div>'+
       '<div class="popRow" style="font-size:11px;color:#718096;margin-top:4px">'+
         '<span>GIS-only model — not physically calibrated</span></div>';
   }
 
-  let segLayers = DATA.steps.map(stepData => {
-    const layer = L.layerGroup();
-    stepData.segments.forEach(seg => {
-      const latlngs = seg.geometry.map(([lng, lat]) => [lat, lng]);
-      if (latlngs.length < 2) return;
-      const line = L.polyline(latlngs, {
-        color: colorForRisk(seg.risk_score),
-        weight: weightForRisk(seg.risk_score),
-        opacity: 0.92,
-        lineCap: 'round'
+  function buildSegLayers(){
+    return DATA.steps.map(stepData => {
+      const layer = L.layerGroup();
+      stepData.segments.forEach(seg => {
+        const latlngs = seg.geometry.map(([lng, lat]) => [lat, lng]);
+        if (latlngs.length < 2) return;
+        const line = L.polyline(latlngs, {
+          color: colorForRisk(seg.risk_score),
+          weight: weightForRisk(seg.risk_score),
+          opacity: 0.92,
+          lineCap: 'round'
+        });
+        line.bindPopup(buildPopup(seg));
+        line.addTo(layer);
       });
-      line.bindPopup(buildPopup(seg));
-      line.addTo(layer);
+      return layer;
     });
-    return layer;
-  });
-
-  /* Gauge layers are matched to risk timesteps by TIMESTAMP, not array
-     position. Real gauge observations exist only up to T+0 (17:45); for the
-     forecast steps we show the last observed reading, dimmed and labeled. */
-  const gaugeByTs = new Map(GAUGE_DATA.map(g => [g.timestamp, g]));
-  const gaugeTimes = GAUGE_DATA.map(g => g.timestamp).sort();
-
-  function gaugeSetFor(ts){
-    if (gaugeByTs.has(ts)) return { set: gaugeByTs.get(ts), exact: true };
-    let latest = null;
-    for (const t of gaugeTimes) { if (t <= ts) latest = t; }
-    return latest ? { set: gaugeByTs.get(latest), exact: false } : null;
   }
 
-  let gaugeLayers = REAL_TIMESTAMPS.map(ts => {
-    const layer = L.layerGroup();
-    const match = gaugeSetFor(ts);
-    if (!match) return layer;
-    const note = match.exact
-      ? 'Observed ' + fmtClock(match.set.timestamp)
-      : 'Last observed ' + fmtClock(match.set.timestamp) + ' (no live reading for this time)';
-    match.set.gauges.forEach(([lat,lon,rainfall])=>{
-      const marker = L.circleMarker([lat,lon],{
-        radius:6,color:'#1976A8',weight:2,fillColor:'#4FA8D8',
-        fillOpacity: match.exact ? 0.9 : 0.4
+  /* Gauge layers are matched to risk timesteps by TIMESTAMP, not array
+     position. Observations exist only up to T+0; for the forecast steps we
+     show the last observed reading, dimmed and labeled. */
+  function gaugeSetFor(ts){
+    const target = new Date(ts).getTime();
+    let best = null;
+    for (const set of GAUGE_DATA) {
+      const t = new Date(set.timestamp).getTime();
+      if (t === target) return { set, exact: true };
+      if (t <= target && (!best || t > new Date(best.timestamp).getTime())) best = set;
+    }
+    return best ? { set: best, exact: false } : null;
+  }
+
+  function gaugePopup(value, g, note){
+    const live = g && g.rain_rate_mm_hr !== undefined;
+    const fmt = v => v == null ? '—' : Number(v).toFixed(live ? 1 : 2);
+    let html = '<div class="popTitle">' + (live ? (g.name || 'IMD station') : 'Rain gauge') + '</div>';
+    if (live) {
+      html += '<div class="popRow"><span>Rain rate</span><b>' + fmt(value) + ' mm/h</b></div>';
+      if (g.rain_since_0830_mm != null)
+        html += '<div class="popRow"><span>Since 08:30 IST</span><b>' + fmt(g.rain_since_0830_mm) + ' mm</b></div>';
+      if (g.distance_km != null)
+        html += '<div class="popRow"><span>From Koramangala</span><b>' + Number(g.distance_km).toFixed(1) + ' km</b></div>';
+      html += '<div class="popRow" style="font-size:11px;margin-top:4px"><span>' + note + ' · IMD AWS</span></div>';
+    } else {
+      html += '<div class="popRow"><span>Rainfall</span><b>' + fmt(value) + ' mm</b></div>' +
+              '<div class="popRow" style="font-size:11px;margin-top:4px"><span>' + note + '</span></div>';
+    }
+    return html;
+  }
+
+  function buildGaugeLayers(){
+    return REAL_TIMESTAMPS.map(ts => {
+      const layer = L.layerGroup();
+      const match = gaugeSetFor(ts);
+      if (!match) return layer;
+      match.set.gauges.forEach(([lat, lon, value, g]) => {
+        const observedAt = (g && g.observed_at) || match.set.timestamp;
+        const note = match.exact
+          ? 'Observed ' + fmtClock(observedAt)
+          : 'Last observed ' + fmtClock(observedAt) + ' (no reading for this time)';
+        const marker = L.circleMarker([lat, lon], {
+          radius: 6, color: '#1976A8', weight: 2, fillColor: '#4FA8D8',
+          fillOpacity: match.exact && value != null ? 0.9 : 0.4
+        });
+        marker.bindPopup(gaugePopup(value, g, note));
+        marker.addTo(layer);
       });
-      marker.bindPopup(
-        '<div class="popTitle">Rain gauge</div>'+
-        '<div class="popRow"><span>Rainfall</span><b>'+rainfall.toFixed(2)+' mm</b></div>'+
-        '<div class="popRow" style="font-size:11px;margin-top:4px"><span>'+note+'</span></div>'
-      );
-      marker.addTo(layer);
+      return layer;
     });
-    return layer;
-  });
+  }
+
+  let segLayers = buildSegLayers();
+  let gaugeLayers = buildGaugeLayers();
 
   let currentStep = 0;
   let gaugesOn = true;
@@ -1598,7 +1720,7 @@ async function initDashboard() {
       hour12:false,timeZone:'Asia/Kolkata'})+' IST';
   }
 
-  const horizonLabels = ['T+0', 'T+1h', 'T+2h', 'T+3h'];
+  let horizonLabels = META.horizon_labels || ['T+0', 'T+1h', 'T+2h', 'T+3h'];
 
   function bandForRisk(score){
     return RISK_BANDS.find(b=>score<=b.max) || RISK_BANDS[RISK_BANDS.length-1];
@@ -1614,7 +1736,9 @@ async function initDashboard() {
     const riskEl = document.getElementById('summaryRisk');
     riskEl.textContent = band.label;
     riskEl.className = 'summaryValue ' + band.className;
-    document.getElementById('summaryRain').textContent = rainfall == null ? '—' : rainfall.toFixed(1) + ' mm';
+    const rate = stepData.segments[0]?.rain_rate_mm_hr;
+    document.getElementById('summaryRain').textContent = rate != null ? rate.toFixed(1) + ' mm/h'
+      : rainfall == null ? '—' : rainfall.toFixed(1) + ' mm';
     document.getElementById('summaryRoads').textContent = highRiskRoads + ' / ' + scores.length;
   }
 
@@ -1665,6 +1789,38 @@ async function initDashboard() {
     if (routeStart && routeEnd) { fetchAndDrawRoute(); }
   }
   setStep(0);
+
+  /* ── Live refresh: pick up new IMD data without reloading the page ───── */
+  async function refreshData(){
+    let meta;
+    try { meta = await fetchMeta(); } catch (e) { return; }
+    const changed = meta.generated_at !== META.generated_at || meta.source !== META.source;
+    META = meta;
+    renderSourceStatus();
+    if (!changed) return;
+    try {
+      REAL_TIMESTAMPS = meta.timesteps;
+      const [steps, gauges] = await Promise.all([fetchAllRiskData(), fetchGauges()]);
+      GAUGE_DATA = gauges;
+      segLayers[currentStep].remove();
+      gaugeLayers[currentStep].remove();
+      DATA = { steps };
+      horizonLabels = meta.horizon_labels || horizonLabels;
+      segLayers = buildSegLayers();
+      gaugeLayers = buildGaugeLayers();
+      document.getElementById('timeSlider').max = DATA.steps.length - 1;
+      currentStep = Math.min(currentStep, DATA.steps.length - 1);
+      segLayers[currentStep].addTo(map);
+      if (gaugesOn) gaugeLayers[currentStep].addTo(map);
+      setStep(currentStep);
+    } catch (e) {
+      console.warn('Refresh failed, keeping current data:', e);
+    }
+  }
+  setInterval(refreshData, REFRESH_MS);
+  if (META.source === 'live') {
+    map.attributionControl.addAttribution('Rainfall © <a href="https://mausam.imd.gov.in" target="_blank" rel="noopener">India Meteorological Department</a>');
+  }
 
   document.getElementById('timeSlider').addEventListener('input', e=>{
     setStep(parseInt(e.target.value));

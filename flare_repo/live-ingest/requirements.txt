@@ -1,0 +1,11 @@
+# Live IMD ingest (live-ingest/ingest.py, probe_imd.py)
+requests>=2.32.0
+python-dotenv>=1.0.1
+numpy>=2.0
+pandas>=2.2
+scipy>=1.13
+# Reuses ml-nowcasting/nowcasting_api.py, which imports fastapi.
+fastapi>=0.115.0
+# Optional but recommended: without it the forecast falls back to persistence.
+pysteps>=1.10
+opencv-python-headless>=4.9

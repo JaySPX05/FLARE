@@ -1,0 +1,307 @@
+{
+ "ward_id": "koramangala",
+ "source": "demo",
+ "note": "Recorded storm of 2026-09-07 (data/raw/rainfall.csv), hourly snapshots. Values are mm per 15 min.",
+ "frames": [
+  {
+   "timestamp": "2026-09-07T15:00:00",
+   "gauges": [
+    {
+     "station_id": "gauge_01",
+     "name": "Demo gauge 01",
+     "lat": 12.937491,
+     "lon": 77.620618,
+     "rain_mm": 0.62
+    },
+    {
+     "station_id": "gauge_02",
+     "name": "Demo gauge 02",
+     "lat": 12.949014,
+     "lon": 77.649097,
+     "rain_mm": 0.16
+    },
+    {
+     "station_id": "gauge_03",
+     "name": "Demo gauge 03",
+     "lat": 12.94464,
+     "lon": 77.644973,
+     "rain_mm": 0
+    },
+    {
+     "station_id": "gauge_04",
+     "name": "Demo gauge 04",
+     "lat": 12.941973,
+     "lon": 77.62637,
+     "rain_mm": 0
+    },
+    {
+     "station_id": "gauge_05",
+     "name": "Demo gauge 05",
+     "lat": 12.93312,
+     "lon": 77.625455,
+     "rain_mm": 2.02
+    },
+    {
+     "station_id": "gauge_06",
+     "name": "Demo gauge 06",
+     "lat": 12.93312,
+     "lon": 77.625502,
+     "rain_mm": 1.17
+    },
+    {
+     "station_id": "gauge_07",
+     "name": "Demo gauge 07",
+     "lat": 12.931162,
+     "lon": 77.629127,
+     "rain_mm": 0.94
+    },
+    {
+     "station_id": "gauge_08",
+     "name": "Demo gauge 08",
+     "lat": 12.947324,
+     "lon": 77.635743,
+     "rain_mm": 0
+    },
+    {
+     "station_id": "gauge_09",
+     "name": "Demo gauge 09",
+     "lat": 12.942022,
+     "lon": 77.632958,
+     "rain_mm": 0
+    },
+    {
+     "station_id": "gauge_10",
+     "name": "Demo gauge 10",
+     "lat": 12.944161,
+     "lon": 77.628737,
+     "rain_mm": 0.26
+    }
+   ]
+  },
+  {
+   "timestamp": "2026-09-07T16:00:00",
+   "gauges": [
+    {
+     "station_id": "gauge_01",
+     "name": "Demo gauge 01",
+     "lat": 12.937491,
+     "lon": 77.620618,
+     "rain_mm": 14.03
+    },
+    {
+     "station_id": "gauge_02",
+     "name": "Demo gauge 02",
+     "lat": 12.949014,
+     "lon": 77.649097,
+     "rain_mm": 0.7
+    },
+    {
+     "station_id": "gauge_03",
+     "name": "Demo gauge 03",
+     "lat": 12.94464,
+     "lon": 77.644973,
+     "rain_mm": 4.78
+    },
+    {
+     "station_id": "gauge_04",
+     "name": "Demo gauge 04",
+     "lat": 12.941973,
+     "lon": 77.62637,
+     "rain_mm": 24.18
+    },
+    {
+     "station_id": "gauge_05",
+     "name": "Demo gauge 05",
+     "lat": 12.93312,
+     "lon": 77.625455,
+     "rain_mm": 22.67
+    },
+    {
+     "station_id": "gauge_06",
+     "name": "Demo gauge 06",
+     "lat": 12.93312,
+     "lon": 77.625502,
+     "rain_mm": 22.91
+    },
+    {
+     "station_id": "gauge_07",
+     "name": "Demo gauge 07",
+     "lat": 12.931162,
+     "lon": 77.629127,
+     "rain_mm": 23.55
+    },
+    {
+     "station_id": "gauge_08",
+     "name": "Demo gauge 08",
+     "lat": 12.947324,
+     "lon": 77.635743,
+     "rain_mm": 11.92
+    },
+    {
+     "station_id": "gauge_09",
+     "name": "Demo gauge 09",
+     "lat": 12.942022,
+     "lon": 77.632958,
+     "rain_mm": 27.24
+    },
+    {
+     "station_id": "gauge_10",
+     "name": "Demo gauge 10",
+     "lat": 12.944161,
+     "lon": 77.628737,
+     "rain_mm": 22.68
+    }
+   ]
+  },
+  {
+   "timestamp": "2026-09-07T17:00:00",
+   "gauges": [
+    {
+     "station_id": "gauge_01",
+     "name": "Demo gauge 01",
+     "lat": 12.937491,
+     "lon": 77.620618,
+     "rain_mm": 0.61
+    },
+    {
+     "station_id": "gauge_02",
+     "name": "Demo gauge 02",
+     "lat": 12.949014,
+     "lon": 77.649097,
+     "rain_mm": 12.97
+    },
+    {
+     "station_id": "gauge_03",
+     "name": "Demo gauge 03",
+     "lat": 12.94464,
+     "lon": 77.644973,
+     "rain_mm": 21
+    },
+    {
+     "station_id": "gauge_04",
+     "name": "Demo gauge 04",
+     "lat": 12.941973,
+     "lon": 77.62637,
+     "rain_mm": 3.22
+    },
+    {
+     "station_id": "gauge_05",
+     "name": "Demo gauge 05",
+     "lat": 12.93312,
+     "lon": 77.625455,
+     "rain_mm": 0.3
+    },
+    {
+     "station_id": "gauge_06",
+     "name": "Demo gauge 06",
+     "lat": 12.93312,
+     "lon": 77.625502,
+     "rain_mm": 0.81
+    },
+    {
+     "station_id": "gauge_07",
+     "name": "Demo gauge 07",
+     "lat": 12.931162,
+     "lon": 77.629127,
+     "rain_mm": 1.42
+    },
+    {
+     "station_id": "gauge_08",
+     "name": "Demo gauge 08",
+     "lat": 12.947324,
+     "lon": 77.635743,
+     "rain_mm": 15.61
+    },
+    {
+     "station_id": "gauge_09",
+     "name": "Demo gauge 09",
+     "lat": 12.942022,
+     "lon": 77.632958,
+     "rain_mm": 11.61
+    },
+    {
+     "station_id": "gauge_10",
+     "name": "Demo gauge 10",
+     "lat": 12.944161,
+     "lon": 77.628737,
+     "rain_mm": 6.16
+    }
+   ]
+  },
+  {
+   "timestamp": "2026-09-07T17:45:00",
+   "gauges": [
+    {
+     "station_id": "gauge_01",
+     "name": "Demo gauge 01",
+     "lat": 12.937491,
+     "lon": 77.620618,
+     "rain_mm": 0
+    },
+    {
+     "station_id": "gauge_02",
+     "name": "Demo gauge 02",
+     "lat": 12.949014,
+     "lon": 77.649097,
+     "rain_mm": 1.44
+    },
+    {
+     "station_id": "gauge_03",
+     "name": "Demo gauge 03",
+     "lat": 12.94464,
+     "lon": 77.644973,
+     "rain_mm": 1.2
+    },
+    {
+     "station_id": "gauge_04",
+     "name": "Demo gauge 04",
+     "lat": 12.941973,
+     "lon": 77.62637,
+     "rain_mm": 0
+    },
+    {
+     "station_id": "gauge_05",
+     "name": "Demo gauge 05",
+     "lat": 12.93312,
+     "lon": 77.625455,
+     "rain_mm": 0
+    },
+    {
+     "station_id": "gauge_06",
+     "name": "Demo gauge 06",
+     "lat": 12.93312,
+     "lon": 77.625502,
+     "rain_mm": 0.04
+    },
+    {
+     "station_id": "gauge_07",
+     "name": "Demo gauge 07",
+     "lat": 12.931162,
+     "lon": 77.629127,
+     "rain_mm": 0
+    },
+    {
+     "station_id": "gauge_08",
+     "name": "Demo gauge 08",
+     "lat": 12.947324,
+     "lon": 77.635743,
+     "rain_mm": 0.57
+    },
+    {
+     "station_id": "gauge_09",
+     "name": "Demo gauge 09",
+     "lat": 12.942022,
+     "lon": 77.632958,
+     "rain_mm": 0
+    },
+    {
+     "station_id": "gauge_10",
+     "name": "Demo gauge 10",
+     "lat": 12.944161,
+     "lon": 77.628737,
+     "rain_mm": 0.81
+    }
+   ]
+  }
+ ]
+}

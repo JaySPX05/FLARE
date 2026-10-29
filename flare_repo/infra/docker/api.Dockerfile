@@ -12,9 +12,11 @@ WORKDIR /app/backend-api
 COPY backend-api/requirements-api.txt .
 RUN pip install -r requirements-api.txt
 
-COPY backend-api/main.py backend-api/data_loader.py ./
-# risk_lookup_*.json is required; the flood-points file is picked up if present
-COPY data/processed/risk_lookup_*.json data/processed/flood_points_*.geojson /app/data/processed/
+COPY backend-api/main.py backend-api/data_loader.py backend-api/risk_source.py ./
+# Demo data (the recorded storm): risk_lookup_*.json is required; flood points and
+# demo gauges are picked up if present. Live IMD data arrives at runtime through
+# the shared live-data volume mounted at /app/data/live (see docker-compose.yml).
+COPY data/processed/risk_lookup_*.json data/processed/flood_points_*.geojson data/processed/gauges_*.json /app/data/processed/
 
 RUN useradd --create-home --uid 10001 app && chown -R app /app
 USER app

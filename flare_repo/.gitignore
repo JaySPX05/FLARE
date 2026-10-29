@@ -6,6 +6,8 @@ data/processed/*
 !data/raw/.gitkeep
 !data/processed/.gitkeep
 !data/processed/risk_lookup_*.json
+!data/processed/gauges_*.json
+!data/processed/segments_base_*.json
 *.tif
 *.tiff
 *.shp
@@ -51,9 +53,13 @@ build/
 *.out
 *.rpt
 
+# --- Live IMD ingest output (regenerated every cycle) ---
+data/live/
+
 # --- Env / secrets ---
 .env
 .env.*
+!.env.example
 *.key
 credentials.json
 
@@ -70,3 +76,4 @@ Thumbs.db
 backend-api/cache/
 cache/
 cache/
+.pytest_cache/

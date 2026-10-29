@@ -14,7 +14,7 @@ FLARE takes real road, terrain, and drainage data for one Bengaluru ward, combin
 1. **A risk map** — every street segment colored by predicted flood risk, on a 4-step timeline (now, +1h, +2h, +3h), with real historical flood points and rain gauges overlaid.
 2. **Flood-aware routing** — click a start and end point, and get both the shortest route and a route that avoids high-risk segments, computed with a custom Dijkstra over the real road network.
 
-**What's real vs. not yet:** the road network, terrain, drainage proximity, and historical flood points are all real, sourced data. The rainfall nowcast (0–3h) is a genuine PySteps forecast, not a canned number — but it currently extrapolates from a single recorded storm event, not a live feed. The risk score itself is a GIS-based relative indicator (road susceptibility × rainfall), **not** a physically calibrated hydraulic model — that's the planned SWMM integration, gated on getting real pipe-network data from BBMP. Live rainfall access (IMD/KSNDMC) is requested and pending.
+**What's real vs. not yet:** the road network, terrain, drainage proximity, and historical flood points are all real, sourced data. The rainfall nowcast (0–3h) is a genuine PySteps forecast, not a canned number — and it now runs on **live IMD rainfall** (automatic weather stations around Bengaluru, via IMD's approved APIs; see [`live-ingest/`](live-ingest/README.md)), falling back to a single recorded storm event when the live feed isn't available. The risk score itself is a GIS-based relative indicator (road susceptibility × rainfall), **not** a physically calibrated hydraulic model — that's the planned SWMM integration, gated on getting real pipe-network data from BBMP. Ward-level gauge data from KSNDMC is still requested and pending.
 
 ---
 
@@ -74,7 +74,7 @@ python scripts/08_cache_osm_graph.py      # one-time: caches the road graph (nee
 docker compose up --build
 ```
 
-Open **http://localhost:8080**. Check everything came up with:
+Open **http://localhost:8080**. For live IMD data, first check access with `python live-ingest/probe_imd.py` on the IMD-whitelisted network (details in [`live-ingest/README.md`](live-ingest/README.md)); add `?source=demo` to the URL to show the recorded storm instead. Check everything came up with:
 
 ```bash
 powershell -ExecutionPolicy Bypass -File .\infra\docker\smoke-test.ps1   # or run on any OS via pwsh

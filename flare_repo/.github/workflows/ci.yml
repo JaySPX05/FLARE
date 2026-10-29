@@ -19,7 +19,7 @@ jobs:
           python-version: '3.11'
       - name: Syntax check all Python
         run: |
-          python -m compileall -q data-pipeline ml-nowcasting backend-api hydrology-swmm || true
+          python -m compileall -q data-pipeline ml-nowcasting backend-api live-ingest hydrology-swmm || true
           echo "Python syntax check complete"
 
   contract-check:

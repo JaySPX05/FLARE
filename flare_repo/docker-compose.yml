@@ -4,6 +4,14 @@
 #
 # Offline data pipeline (on demand, needs ./data populated):
 #     docker compose run --rm pipeline scripts/04_rainfall_multiplier.py
+#
+# Live IMD data: the `ingest` service polls IMD and writes into the shared
+# live-data volume; the api and routing services pick new files up on their
+# own. IMD access is IP-whitelisted, so run this on the approved network.
+# Check access once with:
+#     docker compose run --rm ingest python live-ingest/probe_imd.py
+# Present the recorded storm instead (e.g. on a dry day):
+#     FLARE_DATA_MODE=demo docker compose up    (or open the dashboard with ?source=demo)
 name: flare
 
 services:
@@ -13,6 +21,10 @@ services:
       dockerfile: infra/docker/api.Dockerfile
     ports:
       - "8000:8000"          # optional: http://localhost:8000/docs
+    environment:
+      FLARE_DATA_MODE: ${FLARE_DATA_MODE:-auto}   # auto = live IMD when available, else demo
+    volumes:
+      - live-data:/app/data/live:ro
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/')"]
       interval: 10s
@@ -26,6 +38,10 @@ services:
       dockerfile: infra/docker/routing.Dockerfile
     ports:
       - "8001:8001"          # optional: http://localhost:8001/docs
+    environment:
+      FLARE_DATA_MODE: ${FLARE_DATA_MODE:-auto}
+    volumes:
+      - live-data:/app/data/live:ro
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8001/')"]
       interval: 10s
@@ -50,6 +66,17 @@ services:
         condition: service_healthy
     restart: unless-stopped
 
+  ingest:
+    build:
+      context: .
+      dockerfile: infra/docker/ingest.Dockerfile
+    env_file:
+      - path: .env           # IMD settings from probe_imd.py (optional file)
+        required: false
+    volumes:
+      - live-data:/app/data/live
+    restart: unless-stopped
+
   pipeline:
     profiles: ["pipeline"]   # never started by a plain `docker compose up`
     build:
@@ -57,3 +84,6 @@ services:
       dockerfile: infra/docker/pipeline.Dockerfile
     volumes:
       - ./data:/app/data
+
+volumes:
+  live-data:
