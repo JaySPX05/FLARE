@@ -11,6 +11,13 @@
 !data/processed/risk_lookup_*.json
 !data/processed/flood_points_*.geojson
 !data/processed/*.graphml
+!data/processed/gauges_*.json
+!data/processed/segments_base_*.json
+!data/processed/rainfall_multiplier.csv
+!live-ingest/
 
 **/__pycache__
 **/*.pyc
+# Secrets never go into an image (the ingest gets them via env_file at runtime)
+**/.env
+live-ingest/test_ingest.py
