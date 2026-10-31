@@ -769,6 +769,10 @@ svg.leaflet-image-layer.leaflet-interactive path {
   #brandMark .tag{ font-size:9px; letter-spacing:0.08em; color:var(--ink-dim); text-transform:uppercase; }
   #brandMark .livepulse{ width:7px; height:7px; border-radius:50%; background:var(--ember); animation:emberPulse 2s infinite; margin-left:2px; }
   #brandMark.demo .livepulse, #brandMark.stale .livepulse{ animation:none; background:var(--ink-dim); }
+  #brandMark .now{ font-family:var(--font-mono); font-size:10px; color:var(--ink-hi); letter-spacing:0.04em;
+    font-variant-numeric:tabular-nums; white-space:nowrap; margin-top:2px; }
+  #brandMark .now .age{ color:var(--ink-dim); }
+  #brandMark.stale .now .age{ color:var(--ember); }
   #brandMark.stale .tag{ color:var(--ember); }
 
   /* IMD's own station nowcast warning, shown under the brand when not green */
@@ -936,7 +940,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
 
 <div id="brandMark">
 	<span class="glyph">⌁</span>
-	<div title="Flood Localization &amp; Alert Real-time Engine"><div class="name">FLARE</div><div class="tag" id="sourceTag">Koramangala · loading…</div></div>
+	<div title="Flood Localization &amp; Alert Real-time Engine"><div class="name">FLARE</div><div class="tag" id="sourceTag">Koramangala · loading…</div><div class="now" id="liveClock" aria-live="off">--:--:-- IST</div></div>
 	<span class="livepulse"></span>
 </div>
 <div id="imdNowcast" role="status"><span class="dot" id="imdNowcastDot"></span><div><div id="imdNowcastText"></div><div class="sub" id="imdNowcastSub"></div></div></div>
@@ -1187,7 +1191,7 @@ const WARD_ID = 'koramangala';
 // in the dashboard URL (handy for presenting the recorded storm on a dry day).
 const DATA_SOURCE = (new URLSearchParams(location.search).get('source') || '').toLowerCase();
 const SOURCE_PARAM = ['live', 'demo', 'auto'].includes(DATA_SOURCE) ? `&source=${DATA_SOURCE}` : '';
-const REFRESH_MS = 5 * 60 * 1000;   // re-check for new IMD data every 5 min
+const REFRESH_MS = 60 * 1000;   // ask the API for new IMD data every minute (tiny /meta call)
 
 // Filled from the backend (/api/v1/meta, /api/v1/gauges) - nothing hardcoded.
 let META = null;
@@ -1277,13 +1281,11 @@ function renderSourceStatus(){
     const obs = live.newest_observation;
     const fresh = live.freshness_time || obs;
     if (META.stale) {
-      const age = live.observation_age_minutes;
-      tag.textContent = 'IMD feed stale · last update ' + fmtISTClock(fresh) +
-        (age != null ? ' (' + Math.round(age / 60) + 'h ago)' : '');
+      tag.textContent = 'IMD feed stale · last update ' + fmtISTClock(fresh);
     } else if (cityMode) {
-      tag.textContent = 'Live · IMD city nowcast · ' + fmtISTClock(fresh);
+      tag.textContent = 'Live · IMD city nowcast';
     } else {
-      tag.textContent = 'Live · IMD · obs ' + fmtISTClock(obs);
+      tag.textContent = 'Live · IMD stations';
     }
     const method = {pysteps: 'PySteps optical-flow nowcast', persistence: 'persistence (too few stations/frames for PySteps)',
                     dry: 'no rain in recent frames'}[live.nowcast_method] || live.nowcast_method || '—';
@@ -1321,6 +1323,34 @@ function renderSourceStatus(){
     chip.classList.remove('show');
   }
 }
+
+/* ── Live clock: current IST time + how old the data is, ticking every second ── */
+function fmtAge(ms){
+  const min = Math.floor(ms / 60000);
+  if (min < 1) return 'just now';
+  if (min < 60) return min + ' min ago';
+  const h = Math.floor(min / 60), m = min % 60;
+  return h + 'h' + (m ? ' ' + m + 'm' : '') + ' ago';
+}
+function tickClock(){
+  const el = document.getElementById('liveClock');
+  if (!el) return;
+  const now = new Date();
+  const clock = now.toLocaleTimeString('en-IN', {hour:'2-digit', minute:'2-digit', second:'2-digit',
+    hour12:false, timeZone:'Asia/Kolkata'}) + ' IST';
+  let age = '';
+  if (META && META.source === 'live') {
+    const live = META.live || {};
+    const stations = live.rain_source === 'stations';
+    const t = stations ? live.newest_observation : (live.freshness_time || live.generated_at);
+    if (t) age = (stations ? 'obs ' : 'updated ') + fmtAge(now - new Date(t));
+  } else if (META) {
+    age = 'recorded 7 Sep';
+  }
+  el.innerHTML = clock + (age ? ' <span class="age">· ' + age + '</span>' : '');
+}
+tickClock();
+setInterval(tickClock, 1000);
 
 function showLoadingError(message) {
   document.getElementById('map').innerHTML = '';
@@ -1855,6 +1885,10 @@ async function initDashboard() {
     }
   }
   setInterval(refreshData, REFRESH_MS);
+  // Browsers slow down timers in background tabs: catch up as soon as the tab is visible again.
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') { refreshData(); tickClock(); }
+  });
   if (META.source === 'live') {
     map.attributionControl.addAttribution('Rainfall © <a href="https://mausam.imd.gov.in" target="_blank" rel="noopener">India Meteorological Department</a>');
   }
