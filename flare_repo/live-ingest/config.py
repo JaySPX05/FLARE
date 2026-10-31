@@ -79,11 +79,8 @@ NOWCAST_FRAMES = int(_env("NOWCAST_FRAMES", "4"))
 # If the newest IMD reading is older than this, the dashboard marks data stale.
 STALE_AFTER_MINUTES = int(_env("STALE_AFTER_MINUTES", "120"))
 
-# Rain -> risk multiplier thresholds.
-#   "legacy": the demo pipeline's 5/15/30 mm per 15 min (= 20/60/120 mm/h).
-#   "imd":    5/15/30 mm per HOUR, matching IMD's own light/moderate/heavy
-#             nowcast categories. Recommended for live data - see README.
-RAIN_THRESHOLD_SCHEME = _env("RAIN_THRESHOLD_SCHEME", "legacy")
+# Rain -> risk factors are fixed in risk_engine.py (IMD bands, team decision
+# 31 Oct 2026); there is no longer a RAIN_THRESHOLD_SCHEME setting.
 
 # ------------------------------------------------------------ paths
 LIVE_DIR = Path(_env("FLARE_LIVE_DIR", str(REPO_ROOT / "data" / "live")))

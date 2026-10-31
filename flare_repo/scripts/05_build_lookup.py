@@ -30,7 +30,9 @@ Formula  (fully documented, no physical calibration claimed)
                     SUSC_W  = 0.70,  DRAIN_W = 0.30
 
   dynamic_risk(seg, t) = clamp(base_risk × rain_factor(t), 0, 1)
-                         rain_factor values taken from rainfall_multiplier.csv
+                         rain_factor from rainfall_multiplier.csv (script 04):
+                         dry 0.30 / light 0.55 / moderate 0.80 / heavy 1.00
+                         on IMD's rain-rate bands (<0.5, 0.5-5, 5-15, >=15 mm/h)
 
   predicted_depth_cm = dynamic_risk × MAX_DEPTH_CM   (illustrative, NOT calibrated)
   MAX_DEPTH_CM = 30
@@ -371,7 +373,9 @@ payload = {
     "generated_at": pd.to_datetime(rainfall["timestamp"]).max().isoformat(),
     "formula": {
         "description": (
-            "dynamic_risk = clamp(base_risk × rain_factor, 0, 1)  "
+            "dynamic_risk = clamp(base_risk × rain_factor, 0, 1); rain_factor = "
+            "dry 0.30 / light 0.55 / moderate 0.80 / heavy 1.00 on IMD rain-rate bands "
+            "(<0.5, 0.5-5, 5-15, >=15 mm/h).  "
             "where base_risk = 0.70×static_susc + 0.30×drain_prox_norm. "
             "static_susc from script 03 weighted overlay (elevation 0.30, "
             "slope 0.20, dist_to_drain 0.25, imperviousness 0.25). "

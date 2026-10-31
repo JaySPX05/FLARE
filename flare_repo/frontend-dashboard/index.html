@@ -1341,11 +1341,20 @@ function showLoadingError(message) {
 
 /* ── Risk colour bands (score 0–1) ─────────────────────────────────────── */
 const RISK_BANDS = [
-	{max: 0.25, color: '#4FD1A5', label: 'Low',      weight: 6, className: 'low'},
-	{max: 0.45, color: '#E7C24A', label: 'Moderate', weight: 7, className: 'moderate'},
-	{max: 0.80, color: '#E8913F', label: 'High',     weight: 8, className: 'high'},
-	{max: 1.01, color: '#F06A5F', label: 'Severe',   weight: 9, className: 'severe'},
+	{max: 0.25, color: '#4FD1A5', label: 'Low',      weight: 2.5, className: 'low'},
+	{max: 0.45, color: '#E7C24A', label: 'Moderate', weight: 3,   className: 'moderate'},
+	{max: 0.80, color: '#E8913F', label: 'High',     weight: 3.5, className: 'high'},
+	{max: 1.01, color: '#F06A5F', label: 'Severe',   weight: 4.5, className: 'severe'},
 ];
+/* ~960 street segments in a dense grid: thin lines at ward zoom so streets stay
+   distinct, thicker as you zoom in so each road is easy to click. */
+function zoomWeightScale(zoom){
+  if (zoom <= 14) return 0.8;
+  if (zoom === 15) return 1;
+  if (zoom === 16) return 1.4;
+  if (zoom === 17) return 1.9;
+  return 2.4;
+}
 function colorForRisk(score){
   for(const b of RISK_BANDS){ if(score<=b.max) return b.color; }
   return RISK_BANDS[RISK_BANDS.length-1].color;
@@ -1646,10 +1655,11 @@ async function initDashboard() {
         if (latlngs.length < 2) return;
         const line = L.polyline(latlngs, {
           color: colorForRisk(seg.risk_score),
-          weight: weightForRisk(seg.risk_score),
+          weight: weightForRisk(seg.risk_score) * zoomWeightScale(map.getZoom() || 15),
           opacity: 0.92,
           lineCap: 'round'
         });
+        line._risk = seg.risk_score;
         line.bindPopup(buildPopup(seg));
         line.addTo(layer);
       });
@@ -1712,6 +1722,13 @@ async function initDashboard() {
 
   let segLayers = buildSegLayers();
   let gaugeLayers = buildGaugeLayers();
+
+  map.on('zoomend', () => {
+    const scale = zoomWeightScale(map.getZoom());
+    segLayers.forEach(layer => layer.eachLayer(line => {
+      if (line._risk != null) line.setStyle({weight: weightForRisk(line._risk) * scale});
+    }));
+  });
 
   let currentStep = 0;
   let gaugesOn = true;

@@ -10,6 +10,7 @@ around Bengaluru over four hourly reports.
 """
 
 import json
+import re
 from datetime import datetime, timedelta, timezone
 
 import pytest
@@ -70,7 +71,6 @@ def live_dir(tmp_path, monkeypatch):
     monkeypatch.setattr(config, "IMD_RAIN_FIELD", "")
     monkeypatch.setattr(config, "IMD_RAIN_MODE", "cumulative")
     monkeypatch.setattr(config, "FRAME_MINUTES", 60)
-    monkeypatch.setattr(config, "RAIN_THRESHOLD_SCHEME", "imd")
     return tmp_path
 
 
@@ -128,11 +128,25 @@ def test_station_nowcast_parse():
     assert nc["valid_upto"] == "1830"
 
 
-def test_multiplier_schemes():
-    assert risk_engine.rain_multiplier(10, "imd") == 1.25
-    assert risk_engine.rain_multiplier(10, "legacy") == 1.00   # 10 mm/h = 2.5 mm/15 min
-    assert risk_engine.rain_multiplier(80, "legacy") == 1.60
-    assert risk_engine.rain_multiplier(40, "imd") == 2.00
+def test_rain_factors_follow_imd_bands():
+    f = risk_engine.rain_multiplier
+    assert f(0.0) == 0.30 and f(0.4) == 0.30          # dry
+    assert f(0.5) == 0.55 and f(4.9) == 0.55          # light (< 5 mm/h)
+    assert f(5.0) == 0.80 and f(14.9) == 0.80         # moderate (5-15)
+    assert f(15.0) == 1.00 and f(120.0) == 1.00       # heavy
+    # The city-nowcast band rates land in the matching bands
+    assert [f(ingest.NOWCAST_BAND_RATE_MM_HR[c]) for c in (2, 7, 12)] == [0.55, 0.80, 1.00]
+
+
+def test_demo_pipeline_uses_the_same_bands():
+    """scripts/04 can't be imported (it runs on import), so compare its constants as text."""
+    src = (config.REPO_ROOT / "scripts" / "04_rainfall_multiplier.py").read_text()
+    grab = lambda name: float(re.search(rf"^{name} = ([0-9.]+)", src, re.M).group(1))
+    assert grab("DRY_MAX_MM_HR") == risk_engine.DRY_MAX_MM_HR
+    assert grab("LIGHT_MAX_MM_HR") == risk_engine.LIGHT_MAX_MM_HR
+    assert grab("MODERATE_MAX_MM_HR") == risk_engine.MODERATE_MAX_MM_HR
+    factors = re.search(r"^RAIN_FACTORS = (\{.*\})", src, re.M).group(1)
+    assert eval(factors) == risk_engine.RAIN_FACTORS
 
 
 def test_cumulative_reset_at_0830_is_handled(live_dir):
@@ -179,7 +193,7 @@ def test_full_cycle_writes_lookup_gauges_and_status(live_dir, monkeypatch):
     assert lookup["live"]["nowcast_method"] in ("pysteps", "persistence")
     rate0 = seg[0]["rain_rate_mm_hr"]
     assert rate0 > 0, "storm should be raining over Koramangala at T+0"
-    mult = risk_engine.rain_multiplier(rate0, "imd")
+    mult = risk_engine.rain_multiplier(rate0)
     assert seg[0]["risk_score"] == round(min(1.0, base[0]["base_risk"] * mult), 2)
 
     gauges = json.loads((live_dir / "gauges_koramangala.json").read_text())

@@ -13,17 +13,20 @@ not a replay of past observations relabeled as a forecast.
 Outputs
 -------
 data/processed/rainfall_multiplier.csv
-  Columns: timestamp, mean_rainfall_mm, rainfall_multiplier, horizon_label,
-           is_forecast
+  Columns: timestamp, mean_rainfall_mm (per 15 min), rain_rate_mm_hr,
+           rainfall_multiplier (the rain factor), horizon_label, is_forecast
 
 Formula
 -------
-  multiplier(t) driven by rain intensity bucket:
-    dry   (< 5 mm)  -> 1.00  (baseline susceptibility only)
-    light (5-15 mm) -> 1.25
-    mod  (15-30 mm) -> 1.60  (conservative peak; multiplier kept <= 2 since
-                              we do not model pipe capacity explicitly)
-    heavy (>= 30 mm) -> 2.00
+  rain factor(t) from the rain RATE over the ward, using IMD's own intensity bands
+  (team decision, 31 Oct 2026 - rain decides HOW MUCH risk, susceptibility decides WHERE):
+    dry      (< 0.5 mm/h)  -> 0.30   calm baseline: a dry day shows low risk
+    light    (0.5-5 mm/h)  -> 0.55
+    moderate (5-15 mm/h)   -> 0.80
+    heavy    (>= 15 mm/h)  -> 1.00   full static susceptibility
+  Previously 1.00/1.25/1.60/2.00 on 5/15/30 mm per 15 min, which put ~97% of the
+  ward's streets in High/Severe even on a dry day once real drains were used.
+  live-ingest/risk_engine.py applies exactly the same bands to live IMD data.
 """
 
 import os
@@ -59,25 +62,26 @@ NOWCAST_TIMESTEP_MINUTES = 15
 
 
 # ============================================================
-# THRESHOLDS (mm per 15-min accumulation)
+# RAIN BANDS (mm per HOUR - IMD's light / moderate / heavy categories)
+# Keep in step with live-ingest/risk_engine.py (a test checks they match).
 # ============================================================
 
-DRY_THRESH = 5.0        # < 5 mm   -> multiplier 1.00
-LIGHT_THRESH = 15.0     # 5-15 mm  -> multiplier 1.25
-MODERATE_THRESH = 30.0  # 15-30 mm -> multiplier 1.60
-#                          >= 30 mm -> multiplier 2.00
+DRY_MAX_MM_HR = 0.5        # below this: dry
+LIGHT_MAX_MM_HR = 5.0      # IMD light rain: < 5 mm/h
+MODERATE_MAX_MM_HR = 15.0  # IMD moderate: 5-15 mm/h; heavy: > 15 mm/h
+RAIN_FACTORS = {"dry": 0.30, "light": 0.55, "moderate": 0.80, "heavy": 1.00}
 
 
-def multiplier_from_rain(rain_mm: float) -> float:
-    """Step-function: rainfall intensity (mm) -> dimensionless multiplier."""
-    if rain_mm < DRY_THRESH:
-        return 1.00
-    elif rain_mm < LIGHT_THRESH:
-        return 1.25
-    elif rain_mm < MODERATE_THRESH:
-        return 1.60
-    else:
-        return 2.00
+def multiplier_from_rain(rain_mm_15min: float) -> float:
+    """Rain over one 15-minute step (mm) -> rain factor, via its hourly rate."""
+    rate = rain_mm_15min * 60.0 / NOWCAST_TIMESTEP_MINUTES
+    if rate < DRY_MAX_MM_HR:
+        return RAIN_FACTORS["dry"]
+    if rate < LIGHT_MAX_MM_HR:
+        return RAIN_FACTORS["light"]
+    if rate < MODERATE_MAX_MM_HR:
+        return RAIN_FACTORS["moderate"]
+    return RAIN_FACTORS["heavy"]
 
 
 def leadtime_index_for_minutes(minutes_ahead: int) -> int:
@@ -146,6 +150,7 @@ print(f"  Forecast grids produced: {forecast.shape[0]} leadtimes "
 steps = [{
     "timestamp": t0_timestamp.isoformat(),
     "mean_rainfall_mm": round(t0_rain, 3),
+    "rain_rate_mm_hr": round(t0_rain * 60.0 / NOWCAST_TIMESTEP_MINUTES, 2),
     "rainfall_multiplier": multiplier_from_rain(t0_rain),
     "horizon_label": "T+0",
     "is_forecast": False,
@@ -168,6 +173,7 @@ for minutes_ahead, label in [(60, "T+1h"), (120, "T+2h"), (180, "T+3h")]:
     steps.append({
         "timestamp": ts.isoformat(),
         "mean_rainfall_mm": round(rain, 3),
+        "rain_rate_mm_hr": round(rain * 60.0 / NOWCAST_TIMESTEP_MINUTES, 2),
         "rainfall_multiplier": mult,
         "horizon_label": label,
         "is_forecast": True,

@@ -117,11 +117,12 @@ The brand box on the dashboard shows which one you're looking at: **Live · IMD 
   ward-level gauge request still matters.
 - **Too few stations or frames → persistence.** PySteps needs at least 3 stations and 2
   frames; otherwise the forecast holds the current rate flat and the dashboard says so.
-- **Rain thresholds.** The demo pipeline's multiplier steps at 5/15/30 mm *per 15 minutes*
-  (20/60/120 mm/h), so with live data almost any real rain leaves the multiplier at 1.0.
-  `RAIN_THRESHOLD_SCHEME=imd` uses 5/15/30 mm *per hour* instead, matching IMD's own
-  light/moderate/heavy categories. This changes the results, so it is a team decision;
-  the default stays `legacy` for consistency with the demo.
+- **Rain factors (team decision, 31 Oct 2026).** Rain decides *how much* risk and the GIS
+  susceptibility decides *where*: risk = base_risk x rain factor, with IMD's rain-rate bands
+  dry (< 0.5 mm/h) 0.30, light (0.5-5) 0.55, moderate (5-15) 0.80, heavy (>= 15) 1.00.
+  A dry day therefore shows a calm, mostly-Low map; IMD rain warnings visibly raise it.
+  scripts/04 (demo storm) uses the same bands, so demo and live are comparable. The old
+  `RAIN_THRESHOLD_SCHEME` setting is gone; if it's still in your `.env` it's ignored.
 - **Base risk.** Each cycle multiplies the static GIS score by live rain. That score comes
   from `data/processed/segments_base_koramangala.json`, which `scripts/05` now writes. Until
   you re-run scripts/05 it's recovered from the demo lookup, which is rounded to 2 decimals.

@@ -7,7 +7,8 @@ doesn't change with the weather, so it is computed once by scripts/05 and
 saved to data/processed/segments_base_koramangala.json. Every ingest cycle
 only redoes the cheap part, exactly as scripts/05 does it:
 
-    dynamic_risk(seg, t) = clamp(base_risk(seg) x rain_multiplier(t), 0, 1)
+    dynamic_risk(seg, t) = clamp(base_risk(seg) x rain_factor(t), 0, 1)
+    rain_factor          = dry 0.30 / light 0.55 / moderate 0.80 / heavy 1.00
     predicted_depth_cm   = dynamic_risk x 30     (illustrative, not calibrated)
 """
 
@@ -23,24 +24,37 @@ CONFIDENCE = 0.60
 
 # ---------------------------------------------------------------- multiplier
 
-def rain_multiplier(rate_mm_hr, scheme=None):
-    """
-    Rain intensity -> risk multiplier, same step values as scripts/04.
+# Same bands and factors as scripts/04_rainfall_multiplier.py (a test checks it).
+DRY_MAX_MM_HR = 0.5
+LIGHT_MAX_MM_HR = 5.0
+MODERATE_MAX_MM_HR = 15.0
+RAIN_FACTORS = {"dry": 0.30, "light": 0.55, "moderate": 0.80, "heavy": 1.00}
 
-    "legacy" keeps scripts/04's thresholds exactly: 5/15/30 mm per 15-min
-    accumulation, i.e. 20/60/120 mm/h. "imd" applies the same 5/15/30 numbers
-    per HOUR, which lines up with IMD's light (<5), moderate (5-15) and heavy
-    (>15 mm/h) nowcast categories.
+
+def rain_band(rate_mm_hr):
+    if rate_mm_hr < DRY_MAX_MM_HR:
+        return "dry"
+    if rate_mm_hr < LIGHT_MAX_MM_HR:
+        return "light"
+    if rate_mm_hr < MODERATE_MAX_MM_HR:
+        return "moderate"
+    return "heavy"
+
+
+def rain_multiplier(rate_mm_hr):
     """
-    scheme = scheme or config.RAIN_THRESHOLD_SCHEME
-    value = rate_mm_hr / 4.0 if scheme == "legacy" else rate_mm_hr
-    if value < 5.0:
-        return 1.00
-    if value < 15.0:
-        return 1.25
-    if value < 30.0:
-        return 1.60
-    return 2.00
+    Rain rate over the ward (mm/h) -> rain factor.
+
+    rain factor(t) from the rain RATE over the ward, using IMD's own intensity bands
+    (team decision, 31 Oct 2026 - rain decides HOW MUCH risk, susceptibility decides WHERE):
+      dry      (< 0.5 mm/h)  -> 0.30   calm baseline: a dry day shows low risk
+      light    (0.5-5 mm/h)  -> 0.55
+      moderate (5-15 mm/h)   -> 0.80
+      heavy    (>= 15 mm/h)  -> 1.00   full static susceptibility
+    Previously 1.00/1.25/1.60/2.00 on 5/15/30 mm per 15 min, which put ~97% of the
+    ward's streets in High/Severe even on a dry day once real drains were used.
+    """
+    return RAIN_FACTORS[rain_band(rate_mm_hr)]
 
 
 # ---------------------------------------------------------------- base risk
@@ -103,6 +117,7 @@ def build_lookup(base_segments, steps, meta):
                 "drain_proximity_m": seg.get("drain_proximity_m"),
                 "mean_rainfall_mm": round(rate, 2),     # mm over the hour = mm/h
                 "rain_rate_mm_hr": round(rate, 2),
+                "rain_band": rain_band(rate),
                 "rainfall_multiplier": mult,
                 "horizon_label": step["horizon_label"],
                 "is_forecast": step["is_forecast"],
@@ -116,13 +131,14 @@ def build_lookup(base_segments, steps, meta):
         "live": meta,
         "formula": {
             "description": (
-                "dynamic_risk = clamp(base_risk x rain_multiplier, 0, 1); base_risk from "
+                "dynamic_risk = clamp(base_risk x rain_factor, 0, 1); base_risk from "
                 "scripts/05 (0.70 x static susceptibility + 0.30 x drain proximity). "
-                f"rain_multiplier from IMD AWS rainfall over the ward ({config.RAIN_THRESHOLD_SCHEME} "
-                "thresholds), nowcast with PySteps. predicted_depth_cm = dynamic_risk x 30 "
-                "(illustrative, NOT calibrated). confidence = 0.60 (GIS-only model)."
+                "rain_factor = dry 0.30 / light 0.55 / moderate 0.80 / heavy 1.00 on IMD "
+                "rain-rate bands (<0.5, 0.5-5, 5-15, >=15 mm/h), from live IMD rainfall. "
+                "predicted_depth_cm = dynamic_risk x 30 (illustrative, NOT calibrated). "
+                "confidence = 0.60 (GIS-only model)."
             ),
-            "threshold_scheme": config.RAIN_THRESHOLD_SCHEME,
+            "rain_factors": RAIN_FACTORS,
         },
         "timesteps": timesteps,
     }
