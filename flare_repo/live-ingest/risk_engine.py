@@ -70,6 +70,7 @@ def load_base_segments():
     return [
         {
             "segment_id": s["segment_id"],
+            "road_name": s.get("road_name"),
             "geometry": s["geometry"],
             "base_risk": round(min(1.0, s["risk_score"] / mult), 4),
             "drain_proximity_m": s.get("drain_proximity_m"),
@@ -94,6 +95,7 @@ def build_lookup(base_segments, steps, meta):
             risk = max(0.0, min(1.0, seg["base_risk"] * mult))
             segs.append({
                 "segment_id": seg["segment_id"],
+                "road_name": seg.get("road_name"),
                 "geometry": seg["geometry"],
                 "risk_score": round(risk, 2),
                 "predicted_depth_cm": round(risk * MAX_DEPTH_CM, 1),

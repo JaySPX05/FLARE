@@ -394,3 +394,14 @@ def test_expired_nowcast_is_not_reused(live_dir, monkeypatch):
         return imd.parse_lenient_json(text), text
     monkeypatch.setattr(imd, "fetch_raw", fetch_raw)
     assert ingest.run_cycle() is False
+
+
+def test_street_names_pass_through_to_lookup():
+    base = [{"segment_id": "seg_0001", "road_name": "80 Feet Road", "geometry": [[77.62, 12.93], [77.63, 12.93]],
+             "base_risk": 0.5, "drain_proximity_m": 120.0},
+            {"segment_id": "seg_0002", "geometry": [[77.62, 12.94], [77.63, 12.94]],   # older base file: no name
+             "base_risk": 0.4, "drain_proximity_m": 300.0}]
+    steps = [{"timestamp": "2026-10-31T16:00:00+05:30", "rain_rate_mm_hr": 0.0,
+              "horizon_label": "T+0", "is_forecast": False}]
+    segs = risk_engine.build_lookup(base, steps, {"generated_at": "x"})["timesteps"]["2026-10-31T16:00:00+05:30"]
+    assert segs[0]["road_name"] == "80 Feet Road" and segs[1]["road_name"] is None

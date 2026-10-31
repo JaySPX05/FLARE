@@ -39,12 +39,12 @@ Formula  (fully documented, no physical calibration claimed)
 
 Notes
 -----
-- Drains come from data/processed/drains.gpkg (118 features, Bellandur SWD network).
-  They lie just east of the Koramangala ward boundary; the eastern roads are
-  therefore genuinely closest to this drain network — a geographically meaningful signal.
+- Roads and drains come from script 01 (since 31 Oct 2026): the ward's own
+  streets from the OSM drive graph, and BBMP's city storm-water drains clipped
+  to the ward + 1 km. (Before that, both were Bellandur-side extracts that
+  missed most of the ward - see scripts/00_check_extents.py.)
 - Pipe capacities are NOT invented; only spatial proximity is used.
-- The ward boundary is NOT used for clipping roads (it clips to only 2 features due to
-  the ward polygon extent). Instead, a Koramangala bounding box is used.
+- Roads are kept when their midpoint is inside the ward polygon (+15 m).
 - Highway types: footway / steps / path / construction / proposed / track excluded.
 """
 
@@ -76,9 +76,10 @@ RAINFALL_FILE      = Path("data/processed/rainfall_multiplier.csv")
 
 OUTPUT_FILE = Path(f"data/processed/risk_lookup_{WARD_ID}.json")
 
-# The same reproducible pilot-study extent used by script 01. The supplied
-# ward polygon and source OSM/drain layers have an extent mismatch.
-KORM_BBOX_WGS84 = (77.618, 12.918, 77.650, 12.953)   # (lon_min, lat_min, lon_max, lat_max)
+# The real ward polygon (written by script 01). Roads whose midpoint lies
+# inside it (grown by ROAD_MIDPOINT_TOLERANCE_M) are part of the lookup.
+WARD_FILE = Path("data/processed/ward.gpkg")
+ROAD_MIDPOINT_TOLERANCE_M = 15
 
 # Highway types to INCLUDE (navigable roads only)
 INCLUDE_HIGHWAY = {
@@ -191,27 +192,24 @@ print("BUILDING RISK LOOKUP — KORAMANGALA")
 print("=" * 60)
 
 # ---- Check inputs ----
-for p in [ROAD_FILE, SUSCEPTIBILITY_FILE, DRAIN_FILE, RAINFALL_FILE]:
+for p in [WARD_FILE, ROAD_FILE, SUSCEPTIBILITY_FILE, DRAIN_FILE, RAINFALL_FILE]:
     if not p.exists():
         raise FileNotFoundError(f"Required file missing: {p}")
 
 
-# ---- Bounding box in UTM (EPSG:32643) ----
-t_to_utm = Transformer.from_crs("EPSG:4326", "EPSG:32643", always_xy=True)
-x_min, y_min = t_to_utm.transform(KORM_BBOX_WGS84[0], KORM_BBOX_WGS84[1])
-x_max, y_max = t_to_utm.transform(KORM_BBOX_WGS84[2], KORM_BBOX_WGS84[3])
-korm_box = box(x_min, y_min, x_max, y_max)
-print(f"\nKoramangala UTM bbox: [{x_min:.0f}, {y_min:.0f}, {x_max:.0f}, {y_max:.0f}]")
+# ---- Ward polygon in UTM (EPSG:32643) ----
+ward_geom = gpd.read_file(WARD_FILE).to_crs("EPSG:32643").geometry.union_all()
+print(f"\nKoramangala ward: {ward_geom.area / 1e6:.2f} km2")
 
 
-# ---- Load & clip roads ----
+# ---- Load roads, keep the ward's own ----
 print("\nLoading roads...")
-roads = gpd.read_file(ROAD_FILE)   # already EPSG:32643
+roads = gpd.read_file(ROAD_FILE).to_crs("EPSG:32643")
 print(f"  Total road features: {len(roads)}")
 
-# Clip to Koramangala bbox
-roads = roads[roads.geometry.intersects(korm_box)].copy()
-print(f"  After bbox clip: {len(roads)}")
+mid = roads.geometry.interpolate(0.5, normalized=True)
+roads = roads[mid.within(ward_geom.buffer(ROAD_MIDPOINT_TOLERANCE_M)).values].copy()
+print(f"  Midpoint inside the ward: {len(roads)}")
 
 # Filter by highway type
 if "highway" in roads.columns:
@@ -221,7 +219,7 @@ else:
     print("  WARNING: no 'highway' column — using all features")
 
 if roads.empty:
-    raise ValueError("No road features remain after filtering. Check KORM_BBOX_WGS84.")
+    raise ValueError("No road features remain after filtering. Re-run script 01 (roads_ward.gpkg).")
 
 
 # ---- Open susceptibility raster ----
@@ -285,9 +283,13 @@ for _, row in roads.iterrows():
         continue
 
     seg_id = f"seg_{len(segments) + 1:04d}"
+    road_name = row.get("name") if "name" in roads.columns else None
+    if road_name is not None and not isinstance(road_name, str):
+        road_name = None   # NaN / missing
 
     segments.append({
         "segment_id": seg_id,
+        "road_name": road_name,
         "geometry": coords,
         "base_risk": base_risk,
         "static_susc": round(static_susc, 4),
@@ -345,6 +347,7 @@ for _, rain_row in rainfall.iterrows():
 
         step_segs.append({
             "segment_id":         seg["segment_id"],
+            "road_name":          seg["road_name"],
             "geometry":           seg["geometry"],
             "risk_score":         round(dynamic_risk, 2),
             "predicted_depth_cm": round(depth_cm, 1),
@@ -399,7 +402,7 @@ BASE_FILE.write_text(json.dumps({
     "ward_id": WARD_ID,
     "formula": payload["formula"],
     "segments": [
-        {k: s[k] for k in ("segment_id", "geometry", "base_risk", "static_susc",
+        {k: s[k] for k in ("segment_id", "road_name", "geometry", "base_risk", "static_susc",
                            "drain_proximity_norm", "drain_proximity_m")}
         for s in segments
     ],

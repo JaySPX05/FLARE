@@ -1624,7 +1624,12 @@ async function initDashboard() {
     const rainLabel = seg.rain_rate_mm_hr!=null
       ? (cityMode ? 'Rain (IMD city band)' : seg.is_forecast ? 'Rain (nowcast)' : 'Rain (IMD obs.)')
       : 'Rainfall (15 min)';
-    return '<div class="popTitle">Segment '+seg.segment_id.replace('seg_0','#')+'</div>'+
+    const segLabel = 'Segment ' + seg.segment_id.replace('seg_', '#').replace(/#0+(?=\d)/, '#');
+    const title = seg.road_name
+      ? seg.road_name.replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))
+      : segLabel;
+    return '<div class="popTitle">'+title+'</div>'+
+      (seg.road_name ? '<div class="popRow" style="font-size:11px;color:#718096"><span>'+segLabel+'</span></div>' : '')+
       '<div class="popRow"><span>Risk score</span><b>'+seg.risk_score.toFixed(2)+'</b></div>'+
       '<div class="popRow"><span>Indicative depth</span><b>'+(seg.predicted_depth_cm||0).toFixed(1)+' cm</b></div>'+
       '<div class="popRow"><span>Nearest drain</span><b>'+prox+'</b></div>'+

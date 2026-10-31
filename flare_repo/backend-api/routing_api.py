@@ -279,19 +279,27 @@ def _build_edge_segment_map(graph, segments):
     return edge_segments
 
 
+def _segments_fingerprint(segments):
+    """Identifies a set of segment SHAPES (not risk values), so the edge map is
+    rebuilt only when the segments themselves change - e.g. after the lookup
+    is regenerated with new roads, or when demo and live data differ."""
+    return hash(tuple(
+        (s.get("segment_id"), tuple(s["geometry"][0]), tuple(s["geometry"][-1]))
+        for s in segments if s.get("geometry")
+    ))
+
+
 def get_edge_segment_map(graph, segments):
-    if _state["edge_segments"] is None:
-        _state["edge_segments"] = _build_edge_segment_map(
-            graph,
-            segments,
-        )
-
+    key = _segments_fingerprint(segments)
+    cache = _state["edge_segments"]
+    if cache is None or cache.get("key") != key:
+        edge_segments = _build_edge_segment_map(graph, segments)
+        _state["edge_segments"] = {"key": key, "map": edge_segments}
         print(
-            f"Matched {len(_state['edge_segments'])} road edges "
-            "to flood-risk segments."
+            f"Matched {len(edge_segments)} road edges "
+            f"to {len(segments)} flood-risk segments."
         )
-
-    return _state["edge_segments"]
+    return _state["edge_segments"]["map"]
 
 
 def apply_risk_to_graph(graph, timestep=None, source=None):
@@ -369,11 +377,11 @@ def flooded_segments_on_route(
     travels along. Used to report which flooded roads the shortest route
     would have crossed and the safe route avoids.
     """
-    edge_segments = _state["edge_segments"] or {}
-
     segments, _ = get_segments_for_timestep(
         timestep, source
     )
+
+    edge_segments = (_state["edge_segments"] or {}).get("map", {})
 
     risk_by_segment = {
         segment["segment_id"]: float(segment.get("risk_score", 0.0))

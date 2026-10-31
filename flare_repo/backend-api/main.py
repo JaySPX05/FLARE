@@ -53,6 +53,7 @@ app.add_middleware(
 
 class RiskSegment(BaseModel):
     segment_id: str
+    road_name: Optional[str] = None   # OSM street name, when the street has one (additive)
     geometry: list[list[float]]  # [[lng, lat], [lng, lat], ...]
     risk_score: float
     predicted_depth_cm: Optional[float] = None
