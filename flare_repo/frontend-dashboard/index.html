@@ -859,6 +859,8 @@ svg.leaflet-image-layer.leaflet-interactive path {
   .legend-row .rng{color:var(--ink-dim);font-size:10px;margin-left:auto;}
   .gaugeLegend{display:flex;align-items:center;gap:8px;margin-top:12px;padding-top:10px;border-top:1px solid var(--border);color:var(--ink-lo);font-size:11px;}
   .gaugeDot{width:8px;height:8px;border-radius:50%;background:var(--cyan);border:2px solid var(--cyan-dim);}
+  .gaugeDot.off{background:transparent;border:2px dashed #8493AD;}
+  .gaugeLegend + .gaugeLegend{margin-top:6px;padding-top:0;border-top:none;}
 
   #howTo ol{margin:0;padding-left:18px;color:var(--ink-lo);font-size:12px;line-height:1.6;}
 
@@ -1004,6 +1006,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
 		<div class="legend-row"><span class="swatch" style="background:#F2934A"></span><span class="lbl">High</span><span class="rng">0.45–0.80</span></div>
 		<div class="legend-row"><span class="swatch" style="background:#E4502F"></span><span class="lbl">Severe</span><span class="rng">0.80+</span></div>
 		<div class="gaugeLegend"><span class="gaugeDot"></span>Rain gauge location</div>
+		<div class="gaugeLegend" id="gaugeLegendOff" style="display:none"><span class="gaugeDot off"></span>IMD station, not reporting</div>
 	</div>
 </div>
 
@@ -1711,12 +1714,29 @@ async function initDashboard() {
     return best ? { set: best, exact: false } : null;
   }
 
+  function prettyStation(name){
+    return String(name || 'IMD station').replace(/_/g, ' ').replace(/\s*\(/g, ' (').replace(/\s+/g, ' ').trim()
+      .toLowerCase().replace(/\b\w/g, c => c.toUpperCase())
+      .replace(/\(([^)]*)\)/g, (m, x) => '(' + x.toUpperCase() + ')');
+  }
+  function escapeHtml(t){ return String(t).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+
+  function silentStationPopup(g){
+    const kind = {AWS: 'automatic weather station', ARG: 'automatic rain gauge', AGRO: 'agro-met station'}[g.type] || 'station';
+    return '<div class="popTitle">' + escapeHtml(prettyStation(g.name)) + '</div>' +
+      '<div class="popRow"><span>IMD ' + kind + '</span><b>not reporting</b></div>' +
+      (g.distance_km != null ? '<div class="popRow"><span>From Koramangala</span><b>' + Number(g.distance_km).toFixed(1) + ' km</b></div>' : '') +
+      '<div class="popRow" style="font-size:11px;margin-top:4px"><span>IMD\'s API has no data from this station right now, ' +
+      'so FLARE uses IMD\'s city nowcast instead. It switches to this station\'s readings automatically when it reports.</span></div>';
+  }
+
   function gaugePopup(value, g, note){
     const live = g && g.rain_rate_mm_hr !== undefined;
     const fmt = v => v == null ? '—' : Number(v).toFixed(live ? 1 : 2);
     let html = '<div class="popTitle">' + (live ? (g.name || 'IMD station') : 'Rain gauge') + '</div>';
     if (live) {
-      html += '<div class="popRow"><span>Rain rate</span><b>' + fmt(value) + ' mm/h</b></div>';
+      html = '<div class="popTitle">' + escapeHtml(prettyStation(g.name)) + '</div>' +
+             '<div class="popRow"><span>Rain rate</span><b>' + fmt(value) + ' mm/h</b></div>';
       if (g.rain_since_0830_mm != null)
         html += '<div class="popRow"><span>Since 08:30 IST</span><b>' + fmt(g.rain_since_0830_mm) + ' mm</b></div>';
       if (g.distance_km != null)
@@ -1730,11 +1750,18 @@ async function initDashboard() {
   }
 
   function buildGaugeLayers(){
+    const anySilent = GAUGE_DATA.some(f => f.gauges.some(([, , , g]) => g && g.status === 'not_reporting'));
+    document.getElementById('gaugeLegendOff').style.display = anySilent ? 'flex' : 'none';
     return REAL_TIMESTAMPS.map(ts => {
       const layer = L.layerGroup();
       const match = gaugeSetFor(ts);
       if (!match) return layer;
       match.set.gauges.forEach(([lat, lon, value, g]) => {
+        if (g && g.status === 'not_reporting') {
+          L.circleMarker([lat, lon], {radius: 6, color: '#8493AD', weight: 2, dashArray: '3,3', fillOpacity: 0})
+            .bindPopup(silentStationPopup(g)).addTo(layer);
+          return;
+        }
         const observedAt = (g && g.observed_at) || match.set.timestamp;
         const note = match.exact
           ? 'Observed ' + fmtClock(observedAt)

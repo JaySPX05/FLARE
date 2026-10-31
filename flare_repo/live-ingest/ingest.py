@@ -94,6 +94,39 @@ def load_mapping():
         return cached.get("stations", {})
 
 
+def nearby_mapped_stations(mapping):
+    """IMD stations from aws_data_mapping within STATION_RADIUS_KM of the ward."""
+    out = []
+    for sid, m in (mapping or {}).items():
+        if m.get("lat") is None or m.get("lon") is None:
+            continue
+        d = imd.haversine_km(config.WARD_CENTER_LAT, config.WARD_CENTER_LON, m["lat"], m["lon"])
+        if d <= config.STATION_RADIUS_KM:
+            out.append({"station_id": sid, "distance_km": round(d, 2), **m})
+    return sorted(out, key=lambda s: s["distance_km"])
+
+
+def with_silent_stations(gauges, mapping):
+    """
+    Reporting gauges, plus every mapped IMD station near the ward that is NOT
+    reporting, flagged status="not_reporting" with no rain value. The map then
+    shows that IMD has stations here even when none of them is feeding the API.
+    """
+    gauges = [{**g, "status": "reporting"} for g in gauges]
+    seen = {str(g["station_id"]) for g in gauges}
+    for s in nearby_mapped_stations(mapping):
+        if str(s["station_id"]) in seen:
+            continue
+        gauges.append({
+            "station_id": s["station_id"], "name": s.get("name") or s["station_id"],
+            "district": s.get("district"), "type": s.get("type"),
+            "lat": s["lat"], "lon": s["lon"], "distance_km": s["distance_km"],
+            "status": "not_reporting", "observed_at": None,
+            "rain_rate_mm_hr": None, "rain_since_0830_mm": None,
+        })
+    return gauges
+
+
 def fetch_observations():
     mapping = load_mapping()
     records, raw = imd.fetch_aws()
@@ -417,6 +450,15 @@ def run_cycle():
             "attribution": ATTRIBUTION,
         })
         lookup = risk_engine.build_lookup(risk_engine.load_base_segments(), steps, meta)
+
+        try:
+            mapping = load_mapping()          # cached for 24 h, so normally no API call
+        except Exception as e:  # noqa: BLE001 - never let the station list break a cycle
+            print(f"  station list unavailable ({e})")
+            mapping = {}
+        gauges = with_silent_stations(gauges, mapping)
+        meta["stations_not_reporting"] = sum(g["status"] == "not_reporting" for g in gauges)
+        status["stations_not_reporting"] = meta["stations_not_reporting"]
 
         write_json_atomic(config.GAUGES_FILE, {
             "ward_id": config.WARD_ID, "source": "imd_live", "attribution": ATTRIBUTION,

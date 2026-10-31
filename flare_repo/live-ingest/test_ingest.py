@@ -419,3 +419,43 @@ def test_street_names_pass_through_to_lookup():
               "horizon_label": "T+0", "is_forecast": False}]
     segs = risk_engine.build_lookup(base, steps, {"generated_at": "x"})["timesteps"]["2026-10-31T16:00:00+05:30"]
     assert segs[0]["road_name"] == "80 Feet Road" and segs[1]["road_name"] is None
+
+
+# ---------------------------------------------------------------- silent IMD stations on the map
+
+# Real aws_data_mapping shape and the 5 Bengaluru Urban stations from the 29-Oct probe
+REAL_MAPPING = [
+    {"ID": "B48A1222", "STATE": "KARNATAKA", "DISTRICT": "BANGALORE_URBAN", "STATION": "BANGALORE",
+     "STATION_TYPE": "AWS", "Latitude": "12.9667", "Longitude": "77.5833"},
+    {"ID": "55CB0A04", "STATE": "KARNATAKA", "DISTRICT": "BANGALORE_URBAN", "STATION": "ELECTRONIC_CITY(NICE)",
+     "STATION_TYPE": "ARG", "Latitude": "12.8500", "Longitude": "77.6600"},
+    {"ID": "KACHQ000", "STATE": "KARNATAKA", "DISTRICT": "RAMANAGARA", "STATION": "CHANDURAYANGHALLI_KVK",
+     "STATION_TYPE": "AGRO", "Latitude": "12.98", "Longitude": "77.20"},           # ~47 km: outside radius
+]
+
+
+def write_mapping_cache(live_dir):
+    stations = imd.parse_station_mapping(REAL_MAPPING)
+    (live_dir / "stations.json").write_text(json.dumps(
+        {"fetched_at": datetime.now(timezone.utc).isoformat(), "stations": stations}))
+
+
+def test_city_mode_shows_nearby_imd_stations_as_not_reporting(live_dir, monkeypatch):
+    write_mapping_cache(live_dir)
+    now = datetime.now(timezone.utc)
+    use_payloads(monkeypatch, far_aws_payload(now), nowcast_payload([1], "1600", "1900", "2026-10-29"))
+    assert ingest.run_cycle() is True
+
+    gauges = json.loads((live_dir / "gauges_koramangala.json").read_text())["frames"][0]["gauges"]
+    assert [g["station_id"] for g in gauges] == ["B48A1222", "55CB0A04"]   # nearest first, far one excluded
+    assert all(g["status"] == "not_reporting" and g["rain_rate_mm_hr"] is None for g in gauges)
+    assert gauges[0]["type"] == "AWS" and gauges[1]["type"] == "ARG"
+    assert json.loads((live_dir / "status.json").read_text())["stations_not_reporting"] == 2
+
+
+def test_reporting_stations_are_not_duplicated(live_dir, monkeypatch):
+    write_mapping_cache(live_dir)
+    rep = [{"station_id": "B48A1222", "name": "BANGALORE", "lat": 12.9667, "lon": 77.5833,
+            "distance_km": 7.6, "rain_rate_mm_hr": 3.2}]
+    gauges = ingest.with_silent_stations(rep, imd.parse_station_mapping(REAL_MAPPING))
+    assert [(g["station_id"], g["status"]) for g in gauges] == [("B48A1222", "reporting"), ("55CB0A04", "not_reporting")]

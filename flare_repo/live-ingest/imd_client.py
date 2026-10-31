@@ -273,6 +273,7 @@ def parse_station_mapping(records):
             "name": get_ci(r, "STATION", "STATION_NAME", "NAME", "STN_NAME"),
             "district": get_ci(r, "DISTRICT", "DISTRICT_NAME"),
             "call_sign": get_ci(r, "CALL_SIGN"),
+            "type": get_ci(r, "STATION_TYPE", "TYPE"),          # AWS / ARG / AGRO
             "lat": to_float(get_ci(r, "Latitude", "LAT", "LATITUDE")),
             "lon": to_float(get_ci(r, "Longitude", "LON", "LONG", "LONGITUDE")),
         }
